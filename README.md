@@ -2,6 +2,8 @@
 
 A quiet, minimal task planner that starts with an Inbox and gives the right work the right day.
 
+**Visual style:** black-and-white with restrained colour accents — a narrow multicolour stripe and selective pink, blue, and violet cues. No green UI theme.
+
 ## Try the preview
 
 **GitHub Pages:** https://dtosh44.github.io/SimpleDo/
