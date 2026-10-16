@@ -134,3 +134,67 @@ body[data-active-view="one-task"] .day-card { border-color:#d1d1d1; box-shadow:0
 @media(max-width:650px){
   .inbox-import-row {margin:0 0 16px}
 }
+
+
+/* Focus timer: monochrome with a narrow coloured progress indicator. */
+.task-focus-button {
+  flex:0 0 auto; align-self:center; border:1px solid #e4e4e4;
+  background:white; color:#262626; font-size:10px; font-weight:700;
+  line-height:1; min-width:58px; border-radius:8px; padding:9px 7px;
+  white-space:nowrap;
+}
+.task-focus-button:hover {border-color:#999;background:#f8f8f8}
+.task-focus-button:focus-visible,.global-focus-button:focus-visible {
+  outline:2px solid #222; outline-offset:2px;
+}
+.task-focus-button.is-timing {background:#f5f5f5;border-color:#c8c8c8;font-variant-numeric:tabular-nums}
+.global-focus-button {
+  min-width:69px;height:37px;padding:0 11px;background:white;
+  border:1px solid #ddd;border-radius:10px;color:#262626;font-size:11px;
+  font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.global-focus-button:hover {background:#f7f7f7;border-color:#aaa}
+.task-editor-focus {margin-top:18px}
+.task-editor-focus button {width:100%;justify-content:center}
+.focus-dialog {
+  width:min(430px,calc(100vw - 30px)); max-width:430px; padding:0;
+  border:1px solid #e6e6e6;border-radius:18px;color:#191919;
+  background:white;box-shadow:0 20px 75px #00000027;
+}
+.focus-dialog::backdrop {background:#17171799;backdrop-filter:blur(4px)}
+.focus-dialog-inner {padding:29px 28px 27px}
+.focus-dialog-header {display:flex;align-items:start;justify-content:space-between;gap:14px}
+.focus-dialog-header h2 {font-size:25px;line-height:1.25;letter-spacing:-.8px;margin:9px 0 0}
+.focus-task-label {
+  margin:18px 0 25px;padding:12px 14px;border-left:3px solid var(--pink,#e3447d);
+  border-radius:0 7px 7px 0;background:#f7f7f7;color:#454545;
+  font-size:13px;font-weight:650;line-height:1.5;overflow-wrap:anywhere;
+}
+.focus-setup .field-label {margin-top:0}
+.focus-setup select {font-size:14px;min-height:46px}
+.focus-hint {font-size:12px;line-height:1.65;color:#888;margin:17px 0 0}
+.focus-hint-center {text-align:center;margin-top:15px}
+.focus-dialog-actions {display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:26px;flex-wrap:wrap}
+.focus-dialog-actions .button {min-height:40px}
+.focus-clock {text-align:center;margin:7px 0 21px}
+.focus-countdown {
+  font-size:clamp(52px,13vw,76px);font-weight:700;letter-spacing:-3px;
+  line-height:1.1;font-variant-numeric:tabular-nums;
+}
+.focus-phase {font-size:11px;font-weight:750;letter-spacing:1.3px;text-transform:uppercase;color:#8a8a8a;margin-top:10px}
+.focus-progress-track {height:6px;background:#eee;overflow:hidden;border-radius:6px}
+.focus-progress-fill {height:100%;width:0;background:var(--stripe,linear-gradient(90deg,#e3447d,#4578c9));transition:width .7s linear}
+.focus-session-actions {justify-content:space-between}
+.focus-session-actions .button {font-size:11px;padding:9px 11px}
+.focus-finish-actions {display:flex;justify-content:center;flex-wrap:wrap;gap:9px;margin-top:14px}
+.focus-finish-actions .button {font-size:11px}
+body[data-active-view="one-task"] .task-focus-button {font-size:12px;padding:11px 12px;min-width:92px}
+@media(max-width:650px){
+  .global-focus-button {height:36px;padding:0 8px;min-width:48px;font-size:10px}
+  .global-focus-button span:first-child {display:none}
+  .focus-dialog-inner {padding:23px 20px 22px}
+  .focus-dialog-actions {gap:7px}
+  .focus-session-actions .button {flex:1;padding:10px 7px}
+  .task-focus-button {padding:9px 6px;min-width:53px}
+  body[data-active-view="one-task"] .task-focus-button {padding:9px 8px;min-width:70px}
+}
