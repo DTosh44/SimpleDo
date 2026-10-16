@@ -215,7 +215,7 @@
       const next = row && !row.closest('details:not([open])') ? row.querySelector('input,button') : null;
       (next || $('todayFeatured').querySelector('[data-focus-task-id]') || $('todayCompleted').querySelector('summary')).focus();
     }
-    if (saved) notify(task.completed ? "Nicely done. Task completed." : "Task marked incomplete.");
+    if (saved) notify(task.completed ? "Task completed." : "Task marked incomplete.");
   }
 
   function makeTaskCard(task, mode = "card") {
@@ -340,8 +340,8 @@
     else {
       const empty=document.createElement('div');empty.className='today-empty';
       const title=document.createElement('h2'),text=document.createElement('p');
-      title.textContent=!state.total?'A little breathing room':!state.remaining?'All done for today':'No matching tasks';
-      text.textContent=!state.total?'Nothing scheduled for today.':!state.remaining?'Everything you planned for today is complete.':'Try another tag or search to see the rest of your day.';
+      title.textContent=!state.total?'No tasks today':!state.remaining?'All tasks complete':'No matching tasks';
+      text.textContent=!state.total?'Add a task for today.':!state.remaining?'All scheduled tasks are complete.':'Clear the filter to see other tasks.';
       empty.append(title,text);$('todayFeatured').append(empty);
     }
     $('todayAlsoSection').hidden=!state.others.length;$('todayAlsoCount').textContent=String(state.others.length);
@@ -375,9 +375,9 @@
       illustration.className = "task-empty-illustration";
       illustration.textContent = "✓";
       const heading = document.createElement("strong");
-      heading.textContent = "Your Inbox is clear";
+      heading.textContent = "Inbox is empty";
       const description = document.createElement("p");
-      description.textContent = "Add a thought whenever it pops into your head.";
+      description.textContent = "Add a task above.";
       empty.append(illustration, heading, description);
       els.inboxTasks.append(empty);
     }
@@ -405,11 +405,11 @@
       const dayName=document.createElement('span');dayName.className='day-name';dayName.textContent=new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(date);
       if(offset===0){const tag=document.createElement('span');tag.className='today-label';tag.textContent='Today';dayName.append(tag);}
       const summary=document.createElement('span');summary.className='day-summary';
-      summary.textContent=isOne?(all.some(t=>!t.completed)?all.filter(t=>!t.completed).length+' remaining today':'All caught up for today'):!all.length?'No tasks scheduled':`${all.length} ${all.length===1?'task':'tasks'} · ${finished} completed`;
+      summary.textContent=isOne?(all.some(t=>!t.completed)?all.filter(t=>!t.completed).length+' remaining today':'No unfinished tasks today'):!all.length?'No tasks scheduled':`${all.length} ${all.length===1?'task':'tasks'} · ${finished} completed`;
       info.append(dayName,summary);toggle.append(dateBox,info);
       const add=document.createElement('button');add.type='button';add.className='day-add';add.textContent='+';add.setAttribute('aria-label','Add task for '+new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(date));add.onclick=()=>openTask(null,key);
       const stack=document.createElement('div');stack.className='day-tasks'+(!shown.length?' empty':'');stack.id='tasks-'+key;
-      const fill=()=>{if(stack.childNodes.length)return;if(shown.length)stack.append(...shown.map(t=>makeTaskCard(t)));else{const empty=document.createElement('div');empty.className='day-placeholder';empty.textContent=(query||tagUI?.filter)?'No matching tasks':isOne?'You’re all caught up. Nothing else to do today.':'Nothing planned yet. Leave some room to breathe.';stack.append(empty);}};
+      const fill=()=>{if(stack.childNodes.length)return;if(shown.length)stack.append(...shown.map(t=>makeTaskCard(t)));else{const empty=document.createElement('div');empty.className='day-placeholder';empty.textContent=(query||tagUI?.filter)?'No matching tasks':isOne?'No unfinished tasks today.':'No tasks scheduled.';stack.append(empty);}};
       // Populated days start expanded, while empty days stay compact.
       // An explicit user collapse/expand choice wins until the page is reloaded.
       let open=isOne|| (expandedDays.has(key)?expandedDays.get(key):offset===0||shown.length>0);
@@ -462,13 +462,13 @@
       els.searchInput.value = "";
     }
     const labels = {
-      snapshot: ["Snapshot", "See the shape of things", "A quiet look at what’s waiting, planned and complete.", "A LITTLE PERSPECTIVE"],
-      planner: ["Planner", "Make room for today", "Everything on your mind, with space to focus on what matters now.", "YOUR SPACE, YOUR PACE"],
-      inbox: ["Inbox", "Clear your head", "Capture the little and the big things. Decide when to do them later.", "ROOM FOR EVERY THOUGHT"],
-      today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "TODAY · DO"],
-      "one-task": ["One task", "Just one thing at a time", "Your next unfinished task. Complete it and the next one appears.", "A QUIETER WAY TO FOCUS"]
+      snapshot: ["Snapshot", "Snapshot", "Task counts by status, tag and date."],
+      planner: ["Planner", "Planner", "Schedule tasks across your days."],
+      inbox: ["Inbox", "Inbox", "Tasks without a scheduled date."],
+      today: ["Today", "Today", "Today's scheduled tasks."],
+      "one-task": ["One task", "One task", "Your next unfinished task."]
     };
-    const [crumb, heading, description, eyebrow] = labels[activeView];
+    const [crumb, heading, description] = labels[activeView];
     $("breadcrumb").textContent = crumb;
     $("pageTitle").replaceChildren(document.createTextNode(heading));
     const stop = document.createElement("span");
@@ -476,7 +476,6 @@
     stop.textContent = ".";
     $("pageTitle").append(stop);
     $("pageDescription").textContent = description;
-    $("currentDateLabel").textContent = eyebrow;
     $("timelineTitle").textContent = activeView === "today" ? "Your day" : activeView === "one-task" ? "Your next task" : "Your days";
     render();
     window.scrollTo({ top: 0, behavior: scrollBehavior() });
