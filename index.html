@@ -21,6 +21,7 @@
         <button class="nav-item active" type="button" data-nav="planner" aria-current="page"><span class="nav-icon" aria-hidden="true">▤</span> Planner <span class="nav-arrow" aria-hidden="true">›</span></button>
         <button class="nav-item" type="button" data-nav="inbox"><span class="nav-icon" aria-hidden="true">▱</span> Inbox <span class="nav-count" id="sidebarInboxCount">0</span></button>
         <button class="nav-item" type="button" data-nav="today"><span class="nav-icon" aria-hidden="true">◷</span> Today <span class="nav-arrow" aria-hidden="true">›</span></button>
+        <button class="nav-item" type="button" data-nav="one-task"><span class="nav-icon" aria-hidden="true">◎</span> One task <span class="nav-arrow" aria-hidden="true">›</span></button>
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-note">
@@ -28,7 +29,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.2</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.3</span></div>
     </aside>
 
     <div class="content">
@@ -54,6 +55,17 @@
         </div>
 
         <div class="workspace" id="workspace">
+          <section class="timeline-panel" id="timelinePanel" aria-labelledby="timelineTitle">
+            <div class="timeline-heading">
+              <div>
+                <div class="overline">ONE DAY AT A TIME</div>
+                <h2 id="timelineTitle">Your days</h2>
+              </div>
+              <button type="button" class="button button-outline" id="jumpTodayButton">Jump to today <span aria-hidden="true">↓</span></button>
+            </div>
+            <div id="daysRoot" class="days-root"></div>
+            <button type="button" class="more-days" id="moreDaysButton">Show another 30 days <span aria-hidden="true">↓</span></button>
+          </section>
           <section class="inbox-panel dropzone" id="inboxZone" data-date="inbox" aria-labelledby="inboxTitle">
             <div class="section-top">
               <div>
@@ -72,17 +84,6 @@
             <p class="inbox-helper">Unfinished tasks from previous days find their way back here — no overdue pile.</p>
           </section>
 
-          <section class="timeline-panel" id="timelinePanel" aria-labelledby="timelineTitle">
-            <div class="timeline-heading">
-              <div>
-                <div class="overline">ONE DAY AT A TIME</div>
-                <h2 id="timelineTitle">Your days</h2>
-              </div>
-              <button type="button" class="button button-outline" id="jumpTodayButton">Jump to today <span aria-hidden="true">↓</span></button>
-            </div>
-            <div id="daysRoot" class="days-root"></div>
-            <button type="button" class="more-days" id="moreDaysButton">Show another 30 days <span aria-hidden="true">↓</span></button>
-          </section>
         </div>
       </main>
       <footer class="page-footer">SimpleDo preview · Stored locally in this browser · No account or calendar connection yet</footer>
