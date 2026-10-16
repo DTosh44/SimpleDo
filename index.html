@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f7f4">
+  <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
+  <title>SimpleDo — One thing at a time</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#planner" id="brandLink" aria-label="SimpleDo home">
+        <span class="brand-mark"><span aria-hidden="true">✓</span></span>
+        <span class="brand-text"><strong>simpledo<span class="brand-dot">.</span></strong><small>One thing at a time.</small></span>
+      </a>
+      <p class="sidebar-label">YOUR SPACE</p>
+      <nav class="nav-list" aria-label="Views">
+        <button class="nav-item active" type="button" data-nav="planner" aria-current="page"><span class="nav-icon" aria-hidden="true">▤</span> Planner <span class="nav-arrow" aria-hidden="true">›</span></button>
+        <button class="nav-item" type="button" data-nav="inbox"><span class="nav-icon" aria-hidden="true">▱</span> Inbox <span class="nav-count" id="sidebarInboxCount">0</span></button>
+        <button class="nav-item" type="button" data-nav="today"><span class="nav-icon" aria-hidden="true">◷</span> Today <span class="nav-arrow" aria-hidden="true">›</span></button>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-note">
+        <span class="sidebar-note-icon" aria-hidden="true">✳</span>
+        <strong>A quieter kind of productive.</strong>
+        <p>Keep the big picture in your inbox. Give the right things a day.</p>
+      </div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.1</span></div>
+    </aside>
+
+    <div class="content">
+      <header class="topbar">
+        <div class="breadcrumbs"><span class="mobile-brand">simpledo<span class="brand-dot">.</span></span><span class="breadcrumb-section" id="breadcrumb">Planner</span></div>
+        <div class="top-actions">
+          <label class="search-box" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search tasks" autocomplete="off" aria-label="Search tasks"><kbd>/</kbd></label>
+          <span class="preview-pill"><span class="status-dot"></span> Preview</span>
+          <button type="button" class="button button-dark new-task" id="newTaskButton"><span aria-hidden="true">＋</span> New task</button>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <div class="welcome">
+          <div class="eyebrow"><span class="eyebrow-line"></span><span id="currentDateLabel">YOUR SPACE, YOUR PACE</span></div>
+          <h1 id="pageTitle">Make room for today<span class="full-stop">.</span></h1>
+          <p id="pageDescription">Everything on your mind, with space to focus on what matters now.</p>
+        </div>
+
+        <div class="demo-banner" id="demoBanner">
+          <div><strong>Try it out.</strong> These are sample tasks. Add, complete, move or drag them between days. Changes stay in this browser.</div>
+          <button type="button" id="removeDemoButton">Remove samples <span aria-hidden="true">×</span></button>
+        </div>
+
+        <div class="workspace" id="workspace">
+          <section class="inbox-panel dropzone" id="inboxZone" data-date="inbox" aria-labelledby="inboxTitle">
+            <div class="section-top">
+              <div>
+                <div class="overline">CAPTURE FIRST, PLAN LATER</div>
+                <div class="section-title-row"><h2 id="inboxTitle">Inbox</h2><span class="count-tag" id="inboxCount">0</span></div>
+              </div>
+              <span class="panel-symbol" aria-hidden="true">↙</span>
+            </div>
+            <p class="section-intro">A place for everything that isn't ready for a date yet.</p>
+            <form id="quickAddForm" class="quick-add-form">
+              <label class="sr-only" for="quickTaskInput">New task for Inbox</label>
+              <input id="quickTaskInput" type="text" placeholder="What’s on your mind?" maxlength="180" autocomplete="off" required>
+              <button type="submit" aria-label="Add task to Inbox">＋</button>
+            </form>
+            <div id="inboxTasks" class="task-stack"></div>
+            <p class="inbox-helper">Unfinished tasks from previous days find their way back here — no overdue pile.</p>
+          </section>
+
+          <section class="timeline-panel" id="timelinePanel" aria-labelledby="timelineTitle">
+            <div class="timeline-heading">
+              <div>
+                <div class="overline">ONE DAY AT A TIME</div>
+                <h2 id="timelineTitle">Your days</h2>
+              </div>
+              <button type="button" class="button button-outline" id="jumpTodayButton">Jump to today <span aria-hidden="true">↓</span></button>
+            </div>
+            <div id="daysRoot" class="days-root"></div>
+            <button type="button" class="more-days" id="moreDaysButton">Show another 7 days <span aria-hidden="true">↓</span></button>
+          </section>
+        </div>
+      </main>
+      <footer class="page-footer">SimpleDo preview · Stored locally in this browser · No account or calendar connection yet</footer>
+    </div>
+  </div>
+
+  <dialog class="task-dialog" id="taskDialog" aria-labelledby="dialogHeading">
+    <form id="taskForm">
+      <div class="dialog-header"><div><div class="overline">MAKE IT MANAGEABLE</div><h2 id="dialogHeading">New task</h2></div><button type="button" class="icon-button" id="closeDialog" aria-label="Close task editor">×</button></div>
+      <label for="taskTitle" class="field-label">What needs doing?</label>
+      <input type="text" id="taskTitle" class="field-input" maxlength="180" required placeholder="Give your task a name" autocomplete="off">
+      <label for="taskNotes" class="field-label">Notes <span>(optional)</span></label>
+      <textarea id="taskNotes" class="field-input field-textarea" rows="3" maxlength="2000" placeholder="Any extra details..."></textarea>
+      <label for="taskDate" class="field-label">When?</label>
+      <select id="taskDate" class="field-input" aria-label="Task schedule">
+        <option value="">Keep in Inbox</option>
+        <option value="today">Today</option>
+        <option value="tomorrow">Tomorrow</option>
+        <option value="custom">Choose a date...</option>
+      </select>
+      <div class="custom-date-wrap" id="customDateWrap" hidden>
+        <label for="customDateInput" class="field-label">Choose a date</label>
+        <input type="date" class="field-input" id="customDateInput">
+      </div>
+      <label class="main-checkbox" for="taskMain"><input id="taskMain" type="checkbox"><span><strong>Make this the Main Thing</strong><small>Give this task a little more attention on its day.</small></span></label>
+      <div class="dialog-actions"><button type="button" class="button button-danger" id="deleteTaskButton" hidden>Delete task</button><span class="dialog-spacer"></span><button type="button" class="button button-outline" id="cancelTaskButton">Cancel</button><button class="button button-dark" type="submit" id="saveTaskButton">Save task</button></div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
