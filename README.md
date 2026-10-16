@@ -13,7 +13,9 @@ To test locally, open \`index.html\` in a browser after downloading the reposito
 ## What works
 
 - Quick-capture Inbox for unscheduled tasks
-- 30-day rolling planner, with additional 30-day periods on demand (up to 365 days)
+- 30-day rolling planner on the left, with additional 30-day periods on demand (up to 365 days)
+- Inbox on the right in desktop Planner view
+- **One task** focus view below Today, showing the Main Thing or first unfinished task for today (the next appears when completed)
 - Add, edit, delete, complete, and reschedule tasks
 - Drag a task onto a date or back to the Inbox (desktop)
 - Task editing/scheduling on mobile
