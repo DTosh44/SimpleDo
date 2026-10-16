@@ -33,7 +33,7 @@ To test locally, open \`index.html\` in a browser after downloading the reposito
 
 Choose **Start** on an unfinished task (or open the task and select **Start task with a focus timer**). Pick a duration of 10, 15, 20, 25, 30, 45 or 60 minutes, or a custom duration from 1 to 180 minutes. The default is the traditional **25-minute Pomodoro**, and each task remembers the last duration you chose.
 
-The timer appears at the top of the app, can be paused or resumed, and keeps its place when the timer window is closed or the page is refreshed. Only one timer runs at once. When a session finishes, you can start another, take an optional 5-minute break, or mark the task complete. **Running out of time never automatically marks a task done.**
+The timer appears at the top of the app **and in the browser tab title** (for example, `24:36 · SimpleDo`). When paused, the tab shows the paused time; when finished, it shows a completion label; and after ending the session, it returns to the normal SimpleDo title. The timer can be paused or resumed, and keeps its place when the timer window is closed or the page is refreshed. Only one timer runs at once. When a session finishes, you can start another, take an optional 5-minute break, or mark the task complete. **Running out of time never automatically marks a task done.**
 
 The timer uses browser-local data and an end timestamp. It is not a background service; it will show that time has elapsed when you return, but it cannot deliver notifications if the website is closed.
 
