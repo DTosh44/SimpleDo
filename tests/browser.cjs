@@ -104,7 +104,38 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     const settingsBox=await capacityPage.locator('#workingDays').boundingBox();assert.ok(settingsBox.x+settingsBox.width<=390);
     await capacityPage.locator('#closeSettings').click();await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-capacity-mobile.png'});
     await capacityPage.setViewportSize({width:1440,height:1000});await capacityPage.screenshot({path:'/tmp/simpledo-capacity-desktop.png'});
+    await capacityPage.setViewportSize({width:1440,height:1000});
+    async function createTagged(title,tag,estimate='',date='') {
+      await capacityPage.locator('#newTaskButton').click();await capacityPage.locator('#taskTitle').fill(title);await capacityPage.locator('#taskTag').selectOption(tag);
+      await capacityPage.locator('#taskEstimate').selectOption(estimate);
+      if(date){await capacityPage.locator('#taskDate').selectOption('custom');await capacityPage.locator('#customDateInput').fill(date);assert.match(await capacityPage.locator('#scheduleMessage').innerText(),/Outside working hours/);}
+      await capacityPage.locator('#saveTaskButton').click();
+    }
+    await createTagged('Buy groceries','home','60',tuesday);await createTagged('Review budget','work');
+    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);
+    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).locator('.tag-dot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(239, 155, 45)');
+    assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h other time/);
+    await capacityPage.getByRole('button',{name:'Settings',exact:true}).click();await capacityPage.locator('#tagForm').evaluate(el=>el.closest('details').open=true);
+    await capacityPage.locator('#tagName').fill('Garden');await capacityPage.locator('#tagColor').selectOption('purple');await capacityPage.getByRole('button',{name:'Save tag',exact:true}).click();
+    const customId=await capacityPage.locator('#customTagChoice').inputValue();assert.match(customId,/^tag-/);await capacityPage.locator('#closeSettings').click();
+    await createTagged('Plant bulbs',customId,'30',tuesday);
+    await capacityPage.locator('#tagFilter').selectOption('work');assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),0);
+    await capacityPage.locator('#tagFilter').selectOption('home');assert.match(await capacityPage.locator('#inboxTasks').innerText(),/No Inbox tasks with this tag/);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),0);
+    await capacityPage.locator('#tagFilter').selectOption(customId);assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);
+    await capacityPage.locator('#tagFilter').selectOption('');
+    await capacityPage.getByRole('button',{name:'Settings',exact:true}).click();await capacityPage.locator('#customTagChoice').selectOption(customId);await capacityPage.locator('#tagName').fill('Outdoors');await capacityPage.getByRole('button',{name:'Save tag',exact:true}).click();
+    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),1);
+    const [tagDownload]=await Promise.all([capacityPage.waitForEvent('download'),capacityPage.locator('#exportBackup').click()]);
+    const tagBackup=JSON.parse(fs.readFileSync(await tagDownload.path(),'utf8'));assert.ok(tagBackup.tags.some(t=>t.id===customId&&t.name==='Outdoors'));assert.ok(tagBackup.tasks.some(t=>t.title==='Buy groceries'&&t.tagId==='home'));
+    await capacityPage.locator('#deleteCustomTag').click();assert.equal(await capacityPage.locator('#tagName').inputValue(),'');assert.equal(await capacityPage.locator('#deleteCustomTag').isVisible(),false);await capacityPage.locator('#closeSettings').click();
+    assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),0);
+    assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h 30m other time/);
+    const preserved=await capacityPage.evaluate(()=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records['full-day'].task);assert.equal(preserved.tagId,undefined);
+    await capacityPage.evaluate(()=>navigator.serviceWorker.ready);await capacityPage.waitForFunction(()=>navigator.serviceWorker.controller);
+    await capacityContext.setOffline(true);await capacityPage.reload();assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);await capacityContext.setOffline(false);
+    await capacityPage.setViewportSize({width:390,height:844});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-mobile.png'});
+    await capacityPage.setViewportSize({width:1440,height:1000});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-desktop.png'});
     await capacityContext.close();assert.deepEqual(errors,[]);
-    console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions and drag onto a day off.');
+    console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export and offline reload.');
   } finally {await browser.close(); server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});

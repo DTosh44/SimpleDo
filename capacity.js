@@ -1,6 +1,7 @@
 /* Pure capacity calculations. All event intervals are UTC; working hours are wall time in an IANA zone. */
 (function (root) {
   'use strict';
+  const tags = typeof module !== 'undefined' ? require('./tags.js') : root.SimpleDoTags;
   const MIN = 60000, DAY = 1440 * MIN;
   const formatters = new Map(), windowsCache = new Map();
   const defaults = () => ({timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/London', week:Array.from({length:7},(_,i)=>({enabled:i>0&&i<6,start:'09:00',end:'17:00',breakStart:'12:30',breakEnd:'13:30'})),daysOff:[]});
@@ -62,12 +63,15 @@
     const total=windows.reduce((sum,[a,b])=>sum+(b-a)/MIN,0);
     const freeWindows=subtract(windows,busy.map(b=>[Date.parse(b.start),Date.parse(b.end)]));
     const afterMeetings=freeWindows.reduce((sum,[a,b])=>sum+(b-a)/MIN,0);
-    const scheduled=tasks.filter(t=>t.date===date);
+    const all=tasks.filter(t=>t.date===date);
+    const scheduled=all.filter(t=>tags.context(t)==='work');
+    const outside=all.filter(t=>tags.context(t)==='outside');
     const estimated=scheduled.reduce((sum,t)=>sum+(Number.isInteger(t.estimateMinutes)&&t.estimateMinutes>0?t.estimateMinutes:0),0);
-    return {total,meetings:total-afterMeetings,tasks:estimated,free:Math.max(0,afterMeetings-estimated),over:Math.max(0,estimated-afterMeetings),unestimated:scheduled.filter(t=>!t.estimateMinutes).length};
+    return {outside:outside.reduce((sum,t)=>sum+(t.estimateMinutes||0),0),unestimatedOutside:outside.filter(t=>!t.estimateMinutes).length,total,meetings:total-afterMeetings,tasks:estimated,free:Math.max(0,afterMeetings-estimated),over:Math.max(0,estimated-afterMeetings),unestimated:scheduled.filter(t=>!t.estimateMinutes).length};
   }
   function duration(value) {const n=Math.round(value);return n>=60 ? Math.floor(n/60)+'h'+(n%60?' '+n%60+'m':'') : n+'m';}
-  function suggest(date,estimate,dates,settings,tasks,busy=[],excludeId=null) {
+  function suggest(date,estimate,dates,settings,tasks,busy=[],excludeId=null,context='work') {
+    if(context==='outside')return {current:null,date:null,text:'Outside working hours — separate availability is not set up yet.'};
     const others=tasks.filter(t=>t.id!==excludeId);
     const current=calculate(date,settings,others,busy);
     if(!estimate)return {current,date:null,text:current.free===0?'This day is looking quite full. Add an estimate to check this task.':'Time is an estimate; this task has no duration yet.'};

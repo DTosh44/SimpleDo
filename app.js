@@ -111,6 +111,8 @@
   let storageReady = false;
   let cloud = null;
   let planning = null;
+  let tagCatalog = null;
+  let tagUI = null;
   let suggestedDate = null;
   let saveFailed = false;
   function load() {
@@ -172,6 +174,7 @@
   }
 
   function matching(list) {
+    list = tagUI ? list.filter(t => tagUI.matches(t)) : list;
     if (!query) return list;
     return list.filter((task) => (task.title + " " + task.notes).toLocaleLowerCase().includes(query));
   }
@@ -228,6 +231,8 @@
     body.append(title);
     const meta = document.createElement("span");
     meta.className = "task-meta";
+    const tagBadge = tagUI?.badge(task);
+    if (tagBadge) meta.append(tagBadge);
     if (task.estimateMinutes) {
       const estimate = document.createElement("span"); estimate.className = "task-estimate";
       estimate.textContent = "~" + SimpleDoCapacity.duration(task.estimateMinutes); estimate.title = "Estimated total task time"; meta.append(estimate);
@@ -290,10 +295,10 @@
     els.inboxTasks.replaceChildren();
     if (inbox.length) {
       inbox.forEach((t) => els.inboxTasks.append(makeTaskCard(t)));
-    } else if (query) {
+    } else if (query || tagUI?.filter) {
       const empty = document.createElement("p");
       empty.className = "no-results";
-      empty.textContent = "No matching tasks in the Inbox.";
+      empty.textContent = tagUI?.filter ? "No Inbox tasks with this tag." : "No matching tasks in the Inbox.";
       els.inboxTasks.append(empty);
     } else {
       const empty = document.createElement("div");
@@ -324,7 +329,7 @@
       // Main Thing wins; otherwise the oldest unfinished task is next.
       // Completing it automatically reveals the next available task.
       const dayTasks = activeView === "one-task"
-        ? sortTasks(allForDay.filter((t) => !t.completed)).slice(0, 1)
+        ? sortTasks(matching(allForDay.filter((t) => !t.completed))).slice(0, 1)
         : sortTasks(matching(allForDay));
       const finished = allForDay.filter((t) => t.completed).length;
 
@@ -382,9 +387,11 @@
       if (!dayTasks.length) {
         const empty = document.createElement("div");
         empty.className = "day-placeholder";
-        empty.textContent = activeView === "one-task"
+        empty.textContent = activeView === "one-task" && tagUI?.filter && allForDay.some(t => !t.completed)
+          ? "No matching tasks for this tag today."
+          : activeView === "one-task"
           ? "You\u2019re all caught up. Nothing else to do today."
-          : query ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
+          : (query || tagUI?.filter) ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
         stack.append(empty);
       } else {
         dayTasks.forEach((t) => stack.append(makeTaskCard(t)));
@@ -470,6 +477,7 @@
     els.taskTitle.value = task ? task.title : "";
     els.taskNotes.value = task ? task.notes : "";
     els.taskMain.checked = task ? task.main : false;
+    tagUI?.open(task);
     const estimate = task?.estimateMinutes || "";
     $("taskEstimate").value = ["",15,30,60,120].includes(estimate) ? String(estimate) : "custom";
     $("estimateCustomMinutes").value = estimate || "";
@@ -535,6 +543,8 @@
       tasks.push(task);
     }
     task.estimateMinutes = estimateMinutes;
+    const tagId = $("taskTag").value || null;
+    if (tagId || task.tagId) { task.tagId = tagId; task.capacityContext = tagId ? tagUI.context(tagId) : "work"; }
     if (task.main && date) {
       tasks.forEach((other) => {
         if (other.id !== task.id && other.date === date) other.main = false;
@@ -544,7 +554,7 @@
     if (!persist()) { render(); return; }
     closeTask();
     render();
-    if (guidance && (guidance.current.free < (estimateMinutes || 0) || guidance.current.free === 0)) notify(guidance.text);
+    if (guidance?.current && (guidance.current.free < (estimateMinutes || 0) || guidance.current.free === 0)) notify(guidance.text);
     else notify(editingId ? "Task updated." : "Task added.");
   }
 
@@ -578,7 +588,7 @@
     persist();
     render();
     const guidance = targetDate && planning ? planning.guidance(targetDate, task.estimateMinutes, tasks, task.id) : null;
-    notify(guidance && (guidance.current.free < (task.estimateMinutes || 0) || guidance.current.free === 0) ? guidance.text : destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
+    notify(guidance?.current && (guidance.current.free < (task.estimateMinutes || 0) || guidance.current.free === 0) ? guidance.text : destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
   }
 
   function bindDragDrop() {
@@ -1039,7 +1049,7 @@
       render();
       if (!saved) return;
       field.focus();
-      notify("Added to Inbox.");
+      notify(tagUI?.filter ? "Added without a tag. Choose All tags to see it." : "Added to Inbox.");
     });
     els.taskDate.addEventListener("change", updateDateSelector);
     els.taskForm.addEventListener("submit", addOrUpdateTask);
@@ -1100,6 +1110,7 @@
         if (saveFailed) return;
         load();
         planning?.reload();
+        tagUI?.refresh();
         if (focusSession && !tasks.some((t) => t.id === focusSession.taskId && !t.completed))
           clearFocusForTask(focusSession.taskId);
         render();
@@ -1122,7 +1133,7 @@
   $("closeSettings").onclick = () => $("settingsDialog").close();
   $("exportBackup").onclick = () => {
     // Include current in-memory edits even if browser storage has become full.
-    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks, planningSettings: planning?.settings },
+    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks, tags: tagCatalog?.definitions(), planningSettings: planning?.settings },
       "SimpleDo-Backup-" + todayKey() + ".json");
   };
   $("recoveryDownload").onclick = () => downloadJSON({
@@ -1148,7 +1159,8 @@
   function restoreBackup(replace) {
     if (!backupToRestore || (replace && !$("replaceConfirm").checked)) return;
     try {
-      tasks = store.restore(backupToRestore.tasks, replace, replace ? backupToRestore.planningSettings : undefined);
+      tasks = store.restore(backupToRestore.tasks, replace, replace ? backupToRestore.planningSettings : undefined, backupToRestore.tags);
+      tagUI?.refresh();
       planning?.reload();
       if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
       localStorage.setItem(DEMO_KEY, "true");
@@ -1169,10 +1181,11 @@
   }
   function updateSchedulingGuidance() {
     if (!planning) return;
-    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId);
+    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId, tagUI?.context($("taskTag").value));
     $("scheduleMessage").textContent = result.text;
     suggestedDate = result.date; $("useSuggestedDay").hidden = !suggestedDate;
   }
+  $("taskTag").onchange = updateSchedulingGuidance;
   $("taskEstimate").onchange = updateEstimate;
   $("estimateCustomMinutes").oninput = updateSchedulingGuidance;
   els.customDateInput.addEventListener("input", updateSchedulingGuidance);
@@ -1181,7 +1194,11 @@
     els.taskDate.value = "custom"; els.customDateInput.value = suggestedDate; updateDateSelector();
   };
   load();
-  if (storageReady) planning = new SimpleDoPlanning.Controller(store, {changed: () => render()});
+  if (storageReady) {
+    tagCatalog = new SimpleDoTags.Catalog(store);
+    tagUI = new SimpleDoTagUI.Controller(tagCatalog, {tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule()});
+    planning = new SimpleDoPlanning.Controller(store, {changed: () => render(), tags:tagCatalog});
+  }
   loadFocusSession();
   wireEvents();
   setView("planner");
@@ -1189,10 +1206,13 @@
   window.setInterval(tickFocus, 1000);
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
+    tags: tagCatalog,
+    tagsChanged() { tagUI.refresh(); render(); },
     accountChanged: (client, user) => planning?.account(client, user),
     changed(next) {
       if (saveFailed) return;
       tasks = next;
+      tagUI?.refresh();
       if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
       render(); updateFocusPanel();
     }, notify

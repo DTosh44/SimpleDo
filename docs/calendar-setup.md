@@ -6,7 +6,7 @@ The backend runs as a Supabase Edge Function named `calendars`. Use the Supabase
 
 ## 1. Database and authentication
 
-Complete the main README's Supabase setup, including email sign-in and the public frontend configuration. Run `supabase/002_calendars.sql` in the SQL editor after `001_tasks.sql`. Estimated duration is an optional field in the existing task JSON payload, so no task-table rewrite or task-data migration is needed.
+Complete the main README's Supabase setup, including email sign-in and the public frontend configuration. Run `supabase/002_calendars.sql` in the SQL editor after `001_tasks.sql`. Estimated duration and optional tag assignments are fields in the existing task JSON payload, so no task-table rewrite or task-data migration is needed. Custom tag definitions use the separate `003_tags.sql` migration described in the README. Work/untagged tasks use working hours; Home and separate-time custom tags do not use that capacity or receive work-hours suggestions. Separate personal availability rules are not yet implemented.
 
 The new tables contain encrypted OAuth material and selected calendar IDs. RLS is enabled with **no** browser-access policies; `anon` and `authenticated` have no table privileges. Only the Edge Function's server-side service-role client can access them. Do not add public read policies. Calendar busy data is not stored in these tables or written as tasks.
 

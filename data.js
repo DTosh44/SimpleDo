@@ -10,6 +10,7 @@
     return keys.length === Object.keys(b).length && keys.every(key => Object.hasOwn(b, key) && same(a[key], b[key]));
   };
   const id = () => crypto.randomUUID();
+  const tags = typeof module !== 'undefined' ? require('./tags.js') : root.SimpleDoTags;
   const capacity = typeof module !== 'undefined' ? require('./capacity.js') : root.SimpleDoCapacity;
   function validateTask(t) {
     if (!t || typeof t !== 'object' || Array.isArray(t) ||
@@ -19,6 +20,8 @@
         (t.date != null && (typeof t.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(t.date) ||
           !Number.isFinite(Date.parse(t.date)) || new Date(t.date).toISOString().slice(0,10) !== t.date)) ||
         ['completed','main','rolled','demo'].some(k => t[k] !== undefined && typeof t[k] !== 'boolean') ||
+        (t.tagId != null && !['work','home'].includes(t.tagId) && !tags.validId(t.tagId)) ||
+        (t.capacityContext != null && !['work','outside'].includes(t.capacityContext)) ||
         (t.estimateMinutes != null && (!Number.isInteger(t.estimateMinutes) || t.estimateMinutes < 1 || t.estimateMinutes > 10080)) ||
         (t.focusMinutes != null && (!Number.isInteger(t.focusMinutes) || t.focusMinutes < 1 || t.focusMinutes > 180)) ||
         ['createdAt','updatedAt'].some(k => t[k] != null && (typeof t[k] !== 'string' || !Number.isFinite(Date.parse(t[k]))))) {
@@ -33,7 +36,7 @@
       throw new Error('Choose a supported SimpleDo backup exported from Settings.');
     const tasks = data.tasks.map(validateTask);
     if (new Set(tasks.map(t => t.id)).size !== tasks.length) throw new Error('The backup has duplicate task IDs.');
-    return { tasks, planningSettings: data.planningSettings === undefined ? undefined : capacity.validateSettings(data.planningSettings) };
+    return { tasks, tags: data.tags === undefined ? undefined : tags.validateList(data.tags), planningSettings: data.planningSettings === undefined ? undefined : capacity.validateSettings(data.planningSettings) };
   }
   function parseBackup(source) { return parseBackupDocument(source).tasks; }
   class Store {
@@ -46,6 +49,10 @@
       for (const [key, r] of Object.entries(state.records)) {
         if (!r || validateTask(r.task).id !== key || !Number.isSafeInteger(r.version) || r.version < 0 || typeof r.deleted !== 'boolean' || typeof r.dirty !== 'boolean')
           throw new Error('Saved task data is invalid. Existing storage has been preserved.');
+      }
+      if (state.tagRecords !== undefined) {
+        if (!state.tagRecords || typeof state.tagRecords !== 'object' || Array.isArray(state.tagRecords)) throw Error('Saved tag data is invalid.');
+        for (const [id, r] of Object.entries(state.tagRecords)) if (!r || tags.validateTag(r.tag).id !== id || !Number.isSafeInteger(r.version) || r.version < 0 || typeof r.dirty !== 'boolean') throw Error('Saved tag data is invalid.');
       }
       return state;
     }
@@ -72,7 +79,7 @@
     live() { return Object.values(this.state.records).filter(r => !r.deleted).map(r => copy(r.task)); }
     accept() { const tasks = this.live(); this.baseline = copy(tasks); return tasks; }
     refresh() { this.state = this.read() || this.state; return this.accept(); }
-    commit(tasks, planningSettings) {
+    commit(tasks, planningSettings, tagDefinitions) {
       const before = new Map(this.baseline.map(t => [t.id, t]));
       const after = new Map(tasks.map(t => [t.id, validateTask(t)]));
       this.state = this.read() || this.state;
@@ -93,6 +100,7 @@
         this.state.records[key].deleted = true; this.state.records[key].dirty = true;
         this.state.records[key].task.updatedAt = now;
       }
+      if (tagDefinitions !== undefined) this.state.tagRecords = tags.restoreRecords(this.state.tagRecords, tagDefinitions, true);
       if (planningSettings !== undefined) this.state.planningSettings = capacity.validateSettings(planningSettings);
       this.write();
       return this.accept();
@@ -101,18 +109,20 @@
       this.state = this.read() || this.state;
       this.state.planningSettings = capacity.validateSettings(settings); this.write();
     }
-    backup() { return { app: 'SimpleDo', version: 1, exportedAt: new Date().toISOString(), tasks: this.live(), ...(this.state.planningSettings ? {planningSettings:copy(this.state.planningSettings)} : {}) }; }
+    backup() { return { app: 'SimpleDo', version: 1, exportedAt: new Date().toISOString(), tasks: this.live(), tags: Object.values(this.state.tagRecords || {}).map(r => copy(r.tag)), ...(this.state.planningSettings ? {planningSettings:copy(this.state.planningSettings)} : {}) }; }
     checkpoint() { this.storage.setItem('simpledo.beforeRestore.v1', JSON.stringify(this.backup())); }
-    restore(imported, replace, planningSettings) {
+    restore(imported, replace, planningSettings, tagDefinitions) {
       this.refresh(); this.checkpoint();
       const next = replace ? imported : [...this.live(), ...imported.filter(t => !Object.hasOwn(this.state.records, t.id))];
-      return this.commit(next, planningSettings);
+      const mergedTags = tagDefinitions === undefined ? undefined : Object.values(tags.restoreRecords(this.state.tagRecords, tagDefinitions, replace)).map(r => r.tag);
+      return this.commit(next, planningSettings, mergedTags);
     }
     bind(owner) {
       this.refresh(); this.checkpoint();
       // A different account receives a fresh merge only after explicit consent.
       if (this.state.owner !== owner) {
         this.state.records = Object.fromEntries(this.live().map(task => [task.id, {task, version:0, deleted:false, dirty:true}]));
+        this.state.tagRecords = Object.fromEntries(Object.entries(this.state.tagRecords || {}).map(([id, r]) => [id, {...r, version:0, dirty:true}]));
         this.state.owner = owner; this.write();
       }
       return this.accept();

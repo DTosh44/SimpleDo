@@ -14,10 +14,23 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 - Unfinished past tasks return to Inbox
 - Per-task focus duration and a browser-local Pomodoro timer, including the browser-tab countdown (paused/finished states and normal-title restoration)
 - Optional task duration estimates, working hours, quiet daily capacity bars and scheduling suggestions
+- Single optional tags: Work, Home and custom colour-labelled tags, with a discreet filter
 - Optional read-only Outlook/Microsoft 365 and Google Calendar connections
 - Discreet Settings with backup export/restore, account controls, working hours and calendars
 
 Tasks are saved on this device first. After one successful online load over HTTPS (or localhost), a service worker caches the app shell for offline reopening. Local tasks, backups, restoring and focus timers work offline. Running timers never sync between devices. Browser storage is not permanent archival storage: keep downloaded backups somewhere safe, especially before clearing browser data or switching devices.
+
+## Simple tags
+
+Each task can have **one optional tag**. Work uses a blue dot and Home an orange dot, always with a visible text label. Existing tasks remain untagged. Choose a tag in the task editor or leave **No tag**; quick capture stays unchanged. The **Show** filter applies to Inbox, Planner, Today and One task, together with search.
+
+In **Settings → Tags**, create, rename, recolour or delete custom tags. Colours come from the existing blue, orange, pink, purple, mustard and grey palette. Work and Home are fixed defaults. Custom tags use stable IDs, so renaming updates their labels without changing task identity. Deletion removes the label and filter option while keeping every associated task. A removed tag retains its capacity classification; choose **No tag** explicitly in the editor to clear that association and return to the untagged working-hours rule.
+
+Home tasks do **not** consume working-hours capacity. Custom tags default to **Separate from working hours**; choose **Use working hours** when appropriate. Untagged tasks retain the existing working-hours rule. The day indicator lists separate estimates as **other time**, without claiming that personal availability has been configured. Separate-time tasks receive no work-hours scheduling recommendation. Capacity always includes all tasks in the relevant availability group, regardless of the current display filter. Separate availability rules for Home/personal time can be added later without changing task IDs or tag identities.
+
+Tag assignments and custom definitions are saved locally, included in backups and synchronised when configured. Run [`supabase/003_tags.sql`](supabase/003_tags.sql) in the same Supabase project's SQL editor after `001_tasks.sql` to enable custom-tag metadata sync. The new table has owner-only RLS and a revision-checked write function. If the migration is missing or tag sync fails, task sync still runs and tag edits stay queued locally. Actual live Supabase tag sync remains unverified; local simulated two-device and PostgreSQL tests cover it.
+
+Backup **Merge** keeps existing tag definitions/deletions and adds missing IDs; **Replace** restores the backup's custom definitions when present. Re-importing does not duplicate tags. Older backups without tag metadata remain valid. Deletion history prevents an offline stale rename from resurrecting a removed tag. Simultaneous metadata edits use the current server version on conflict; associated tasks are never deleted. When a definition has not arrived yet, its task shows **Tag unavailable** until metadata sync succeeds.
 
 ## Capacity planning and calendars
 
@@ -25,7 +38,7 @@ Capacity works without an account. In **Settings → Working hours**, edit each 
 
 When creating or editing a task, **Estimated time** is optional: 15m, 30m, 1h, 2h or custom (1–10,080 minutes). This is the total expected task duration, independent of the Pomodoro/focus duration. Quick capture stays unchanged. Existing tasks remain unestimated until you choose a duration.
 
-Each planner day shows working time occupied by meetings, scheduled task estimates and estimated free time. Overlapping busy periods are counted once, only within working hours and outside breaks. Busy all-day/out-of-office events can remove a day's capacity. Completed tasks still count toward that day's estimated work; tasks without durations appear separately as **unestimated**. These are whole-day estimates, not a claim that all free time is one continuous slot or that today's earlier hours are still available.
+Each planner day shows working time occupied by meetings, scheduled task estimates and estimated free time. Overlapping busy periods are counted once, only within working hours and outside breaks. Busy all-day/out-of-office events can remove a day's capacity. Completed work/untagged tasks still count toward that day's estimated working time; Home and separate-time tags are listed as other time; tasks without durations appear separately as **unestimated**. These are whole-day estimates, not a claim that all free time is one continuous slot or that today's earlier hours are still available.
 
 When the chosen day has insufficient estimated room, the editor suggests the first later day with enough capacity, searching the following 30 days. **Use suggested day** changes the chosen date only when clicked. Saving or dragging to a full day or a day off is always allowed; guidance never automatically moves a task. Without a calendar, suggestions explicitly use working hours only. With connected calendars, recommendations avoid dates outside freshly cached availability.
 
@@ -38,10 +51,10 @@ Availability refreshes about every 15 minutes while visible and on return/reconn
 1. Open **Settings → Export backup**.
 2. Save `SimpleDo-Backup-YYYY-MM-DD.json` somewhere safe.
 3. To restore, choose **Settings → Import backup** and select that file.
-4. **Merge with existing tasks** adds missing IDs. Existing task versions, working hours and known deletions win. Importing the same file repeatedly does not duplicate tasks.
-5. **Replace existing tasks** restores the backup's task list. Working hours from the backup are restored when present. You must check the explicit replacement warning. When sync is enabled, removals also sync to your account.
+4. **Merge with existing tasks** adds missing IDs. Existing task versions, custom tags, working hours and known deletions win. Importing the same file repeatedly does not duplicate tasks.
+5. **Replace existing tasks** restores the backup's task list. Working hours and custom tags from the backup are restored when present. You must check the explicit replacement warning. When sync is enabled, removals also sync to your account.
 
-The backup includes all live tasks, IDs, names, notes, dates, completion, Main Thing, focus duration, estimated duration, timestamps and other task fields, plus working-hours settings. It excludes login tokens and running timer sessions. An intentionally deleted task can be restored from a backup using **Replace**; **Merge** respects deletion history. Invalid files are rejected before replacement. The separate **Inbox → Import tasks** remains an append-only list importer; it is not a full restore.
+The backup includes all live tasks, IDs, names, notes, dates, completion, Main Thing, focus duration, estimated duration, timestamps and other task fields, plus working-hours settings and custom tag definitions (including deletion history). It excludes login tokens and running timer sessions. An intentionally deleted task can be restored from a backup using **Replace**; **Merge** respects deletion history. Invalid files are rejected before replacement. The separate **Inbox → Import tasks** remains an append-only list importer; it is not a full restore.
 
 Before restoring or joining a different account, SimpleDo saves a local recovery copy. **Settings → Download recovery data** downloads that copy, the current saved data and the original pre-upgrade data, where available. To restore a recovery copy, extract the JSON object stored in `beforeRestore` and import it using **Import backup**. `preUpgrade` is the untouched original array; it can be wrapped as `{"app":"SimpleDo","version":1,"tasks":[...]}` for restore. Recovery downloads are private; do not commit or share them publicly. Only the latest pre-restore/account-merge snapshot is retained in this browser.
 
@@ -56,7 +69,7 @@ Export a fresh backup immediately after upgrading on each device. Browser storag
 Cloud configuration is intentionally empty in `config.js`. Until configured, SimpleDo remains a fully local app and Settings explains that cloud is unavailable. Do not describe a deployed instance as cloud-tested until the live checks below pass.
 
 1. Create a Supabase project in your own account.
-2. In **SQL Editor**, run the complete contents of [`supabase/001_tasks.sql`](supabase/001_tasks.sql). It creates the task table, enables Row Level Security, grants authenticated users access to their own rows, and exposes a revision-checked write function. Anonymous reads/writes and direct client writes are denied. Keep deletion tombstones; do not purge rows, reset revisions or replace this migration with unrestricted insert/update policies.
+2. In **SQL Editor**, run the complete contents of [`supabase/001_tasks.sql`](supabase/001_tasks.sql). It creates the task table, enables Row Level Security, grants authenticated users access to their own rows, and exposes a revision-checked write function. Anonymous reads/writes and direct client writes are denied. Also run [`supabase/003_tags.sql`](supabase/003_tags.sql) for custom-tag metadata sync. Keep deletion tombstones; do not purge rows, reset revisions or replace this migration with unrestricted insert/update policies.
 3. In **Authentication → Providers**, enable **Email** and allow new users to sign up. Keep the standard magic-link confirmation URL in the email template. The app requests a passwordless link using Supabase's official SDK and uses PKCE with persisted sessions and automatic token refresh. Open each link in the same browser/profile/device that requested it, so the stored PKCE verifier is available. Request a separate link on each device. [Supabase email sign-in documentation](https://supabase.com/docs/guides/auth/auth-email-passwordless) and [PKCE documentation](https://supabase.com/docs/guides/auth/sessions/pkce-flow).
 4. In **Authentication → URL Configuration**, set **Site URL** to `https://dtosh44.github.io/SimpleDo/` and add that exact URL to **Redirect URLs**. For local testing, also allow your exact localhost URL, for example `http://localhost:8000/`. If you use a custom domain, allow its actual app URL too.
 5. Configure a production SMTP provider in **Authentication → SMTP Settings** for dependable email delivery. Review your project's email rate limits and test signup with your own email address.
@@ -98,9 +111,9 @@ npm run test:browser
 
 Validated in this implementation:
 
-- 42 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours backups, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
-- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; new calendar token/state tables deny both anonymous and signed-in browser roles
-- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions and dragging onto a day off
+- 52 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours/tag backups, tag rename/delete and offline tag sync, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
+- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; custom tags are isolated per account and direct writes are denied; calendar token/state tables deny both anonymous and signed-in browser roles
+- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions, dragging onto a day off, tag creation/filtering/rename/delete and tagged offline reopening
 
 **Not yet validated against live calendars or a live Supabase project:** real Outlook/Google OAuth, provider event accuracy and refresh-token renewal, physical iPhone/Safari behavior, plus real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior. PGlite and the simulated sync server do not replace these acceptance checks.
 

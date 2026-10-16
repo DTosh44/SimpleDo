@@ -45,24 +45,26 @@
    if(this.calendar.owner!==(user?.id||null)) for(const p of ['outlook','google'])$('choices-'+p).replaceChildren();
    this.calendar.account(client,user);
   }
-  capacity(date,tasks) {return C.calculate(date,this.settings,tasks,this.calendar.intervals(date));}
+  capacity(date,tasks) {return C.calculate(date,this.settings,this.hooks.tags?.scoped(tasks)||tasks,this.calendar.intervals(date));}
   indicator(date,tasks) {
    const result=this.capacity(date,tasks),el=document.createElement('div');el.className='day-capacity'+(result.over?' capacity-full':'');
    const text=document.createElement('div');text.className='capacity-text';
-   text.textContent=(result.total?C.duration(result.meetings)+' meetings · '+C.duration(result.tasks)+' tasks · '+C.duration(result.free)+' free':'Day off'+(result.tasks?' · '+C.duration(result.tasks)+' tasks':''))+(result.over?' · '+C.duration(result.over)+' over':'')+(result.unestimated?' · '+result.unestimated+' unestimated':'');
-   const source=this.calendar.source(date);el.title='Estimated capacity in '+this.settings.timeZone+'; '+source+'. Completed task estimates still count toward the day.';
+   text.textContent=(result.total?C.duration(result.meetings)+' meetings · '+C.duration(result.tasks)+' tasks · '+C.duration(result.free)+' free':'Day off'+(result.tasks?' · '+C.duration(result.tasks)+' tasks':''))+(result.over?' · '+C.duration(result.over)+' over':'')+(result.unestimated?' · '+result.unestimated+' unestimated':'')+(result.outside?' · '+C.duration(result.outside)+' other time':'')+(result.unestimatedOutside?' · '+result.unestimatedOutside+' unestimated outside work':'');
+   const source=this.calendar.source(date);el.title='Estimated capacity in '+this.settings.timeZone+'; '+source+'. Work-capacity estimates include all matching availability tasks, regardless of the display filter. Completed estimates still count.';
    const bar=document.createElement('div');bar.className='capacity-bar';bar.setAttribute('role','img');bar.setAttribute('aria-label',text.textContent+'; estimate; '+source);
    for(const [name,value] of [['meetings',result.meetings],['tasks',Math.min(result.tasks,Math.max(0,result.total-result.meetings))]]) {const part=document.createElement('span');part.className='capacity-'+name;part.style.width=(result.total?Math.min(value,result.total)/result.total*100:0)+'%';bar.append(part);}
    const note=document.createElement('span');note.className='capacity-source';note.textContent='Estimate · '+source;
    el.append(text,bar,note);return el;
   }
-  guidance(date,estimate,tasks,id=null) {
+  guidance(date,estimate,tasks,id=null,context=null) {
    if(!date)return {text:'',date:null};
+   context=context||this.hooks.tags?.context(tasks.find(t=>t.id===id)||{})||'work';
+   if(context==='outside')return C.suggest(date,estimate,[],this.settings,[],[],id,context);
    const start=new Date(date+'T12:00:00Z'),dates=Array.from({length:30},(_,i)=>{const d=new Date(start);d.setUTCDate(d.getUTCDate()+i);return d.toISOString().slice(0,10);});
    // Never present an uncached future day as a calendar-confirmed recommendation.
    const hasCalendar=this.calendar.cache?.selected || this.calendar.providers.some(p=>p.connected&&p.selected.length);
    const candidates=hasCalendar?dates.filter(d=>this.calendar.source(d)==='calendar included'):dates;
-   const result=C.suggest(date,estimate,candidates,this.settings,tasks,this.calendar.intervals(date),id);
+   const result=C.suggest(date,estimate,candidates,this.settings,this.hooks.tags?.scoped(tasks)||tasks,this.calendar.intervals(date),id,context);
    const source=this.calendar.source(date);
    return {...result,text:result.text+' Estimate'+(source==='manual hours'?' from working hours only.':source==='calendar included'?'.':' — '+source+'.')};
   }
