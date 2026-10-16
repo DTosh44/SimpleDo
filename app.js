@@ -6,6 +6,8 @@
   const $ = (id) => document.getElementById(id);
   const els = {
     inboxTasks: $("inboxTasks"),
+    importTasksButton: $("importTasksButton"),
+    importTasksFile: $("importTasksFile"),
     daysRoot: $("daysRoot"),
     inboxCount: $("inboxCount"),
     sidebarInboxCount: $("sidebarInboxCount"),
@@ -519,8 +521,117 @@
     });
   }
 
+
+  // Imports are intentionally browser-only. Never upload a user's tasks to the
+  // public repository or a server, and never overwrite the current task list.
+  function readImportRows(source, filename) {
+    const trimmed = source.trim();
+    if (!trimmed) throw new Error("That file is empty.");
+    const seemsJson = /\.json$/i.test(filename) || trimmed.startsWith("{") || trimmed.startsWith("[");
+    let entries;
+    if (seemsJson) {
+      let data;
+      try {
+        data = JSON.parse(trimmed);
+      } catch (_) {
+        throw new Error("This isn't valid JSON. Try the SimpleDo import file.");
+      }
+      entries = Array.isArray(data) ? data
+        : Array.isArray(data?.tasks) ? data.tasks
+        : Array.isArray(data?.items) ? data.items
+        : null;
+      if (!entries) throw new Error("The JSON file needs a tasks or items list.");
+    } else {
+      const lines = source.split(/\r?\n/);
+      entries = lines.map((raw, index) => {
+        let line = raw.trim();
+        const isTableRow = line.startsWith("|") && line.endsWith("|");
+        if (isTableRow) line = line.slice(1, -1).trim();
+        if (!line || /^[-:|\s]+$/.test(line)) return null;
+        // Skip the header when importing a Markdown table.
+        if (index === 0 && isTableRow && lines[1] &&
+            /^\|?\s*[-: ]+\s*\|?$/.test(lines[1].trim())) return null;
+        line = line.replace(/^[-*]\s+/, "").trim();
+        const link = /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)$/.exec(line);
+        if (link) return { title: link[1], notes: "Reference link: " + link[2] };
+        return { title: line, notes: "" };
+      }).filter(Boolean);
+    }
+    if (entries.length > 2000) {
+      throw new Error("Please import no more than 2,000 tasks at a time.");
+    }
+    return entries.map((entry) => {
+      const title = typeof entry === "string" ? entry.trim()
+        : entry && typeof entry.title === "string" ? entry.title.trim() : "";
+      const rawNotes = entry && typeof entry === "object" && typeof entry.notes === "string"
+        ? entry.notes.trim() : "";
+      const notes = title.length > 180
+        ? (rawNotes ? rawNotes + "\n\n" : "") + "Original task: " + title
+        : rawNotes;
+      return {
+        title: title.length > 180 ? title.slice(0, 179) + "…" : title,
+        notes: notes.slice(0, 2000)
+      };
+    }).filter((row) => row.title.length > 0);
+  }
+
+  async function importTasksFromFile(event) {
+    const field = event.currentTarget;
+    const file = field.files && field.files[0];
+    // Reset first: selecting the same file again should still trigger change.
+    field.value = "";
+    if (!file) return;
+    if (file.size > 2_000_000) {
+      notify("That file is too large. Please choose a smaller list.");
+      return;
+    }
+    try {
+      const rows = readImportRows(await file.text(), file.name);
+      if (!rows.length) {
+        notify("No tasks found in that file.");
+        return;
+      }
+      const known = new Set(tasks.map((t) => t.title.trim().toLocaleLowerCase()));
+      const timestamp = Date.now();
+      let imported = 0;
+      let duplicates = 0;
+      for (const row of rows) {
+        const key = row.title.trim().toLocaleLowerCase();
+        if (known.has(key)) {
+          duplicates++;
+          continue;
+        }
+        known.add(key);
+        tasks.push({
+          id: makeId(),
+          title: row.title,
+          notes: row.notes,
+          date: null,
+          completed: false,
+          main: false,
+          rolled: false,
+          demo: false,
+          createdAt: new Date(timestamp + imported).toISOString()
+        });
+        imported++;
+      }
+      if (imported) {
+        persist();
+        setView("inbox");
+      }
+      notify(imported
+        ? "Imported " + imported + " Inbox " + (imported === 1 ? "task" : "tasks") +
+          (duplicates ? " (" + duplicates + " already existed)." : ".")
+        : "No new tasks to add — they're already in SimpleDo.");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to import this file.");
+    }
+  }
+
   function wireEvents() {
     $("newTaskButton").addEventListener("click", () => openTask());
+    els.importTasksButton.addEventListener("click", () => els.importTasksFile.click());
+    els.importTasksFile.addEventListener("change", importTasksFromFile);
     $("brandLink").addEventListener("click", (event) => {
       event.preventDefault();
       setView("planner");
