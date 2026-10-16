@@ -505,3 +505,4 @@ body[data-active-view=today] .tag-filter-row {margin:0 0 16px}
 .day-info .day-summary {color:#737373}
 .today-completed .today-task-row {opacity:1}.today-completed .today-task-row .task-text {color:#737373}
 body[data-active-view=today] .global-focus-button {min-height:44px}
+body[data-active-view=today] .welcome {max-width:820px}
