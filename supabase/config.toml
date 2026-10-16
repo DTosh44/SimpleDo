@@ -2,3 +2,7 @@
 # OAuth callback cannot carry a Supabase JWT. All POST actions explicitly verify
 # the user's JWT with Supabase Auth; callback consumes one-time hashed state.
 verify_jwt = false
+
+[functions.capture-scan]
+# Explicit Auth verification in the handler supports current JWT/signing-key setups.
+verify_jwt = false

@@ -53,7 +53,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await page.evaluate(()=>navigator.serviceWorker.ready); await page.waitForFunction(()=>navigator.serviceWorker.controller);
     await context.setOffline(true); await page.reload();
     assert.equal(await page.locator('#globalFocusButton').isVisible(),true);
-    await page.locator('#quickTaskInput').fill('Offline capture'); await page.locator('#quickAddForm button').click();
+    await page.locator('#quickTaskInput').fill('Offline capture'); await page.locator('#quickAddForm button[type=submit]').click();
     await page.reload(); assert.equal(await page.getByRole('button',{name:'Edit Offline capture',exact:true}).count(),2);
     await context.setOffline(false);
     await page.setViewportSize({width:390,height:844});

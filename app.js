@@ -114,6 +114,7 @@
   let tagCatalog = null;
   let tagUI = null;
   let snapshot = null;
+  let capture = null;
   let suggestedDate = null;
   let saveFailed = false;
   function load() {
@@ -151,6 +152,24 @@
       $("syncStatus").textContent = "Save failed";
       return false;
     }
+  }
+
+  function captureTasks(rows, tagId) {
+    if (!storageReady || saveFailed) throw Error("Storage is unavailable. Your capture is still here. Resolve the save error in Settings first.");
+    const {titles, duplicates} = SimpleDoCapture.selected(rows, tasks);
+    if (!titles.length) {
+      if (duplicates) return "Already in your unfinished tasks. No duplicates added.";
+      throw Error("Select at least one task to add.");
+    }
+    const tag = tagId ? tagCatalog?.resolve(tagId) : null;
+    if (tagId && (!tag || tag.unavailable)) throw Error("This tag is no longer available. Choose another tag or No tag.");
+    const previous = tasks, previousState = store.state;
+    const additions = titles.map(title => ({id:makeId(), title, notes:"", date:null, completed:false, main:false,
+      rolled:false, demo:false, createdAt:new Date().toISOString(), ...(tag ? {tagId:tag.id, capacityContext:tagCatalog.context({tagId:tag.id})} : {})}));
+    tasks = [...tasks, ...additions];
+    if (!persist()) { tasks = previous; store.state = previousState; render(); throw Error("Could not save. Your capture is still here; free device storage, then reload and retry."); }
+    render();
+    return `${titles.length === 1 ? "Task" : titles.length + " tasks"} added to Inbox.${duplicates ? " " + duplicates + " repeated items skipped." : ""}${tagUI?.filter ? " Choose All tags to see every task." : ""}`;
   }
 
   function rollover() {
@@ -1042,21 +1061,15 @@
     document.querySelectorAll("[data-nav]").forEach((button) =>
       button.addEventListener("click", () => setView(button.dataset.nav))
     );
+    try { $("quickTaskInput").value = sessionStorage.getItem("simpledo.typedDraft.v1") || ""; } catch (_) {}
+    $("quickTaskInput").addEventListener("input", () => { try { sessionStorage.setItem("simpledo.typedDraft.v1", $("quickTaskInput").value); } catch (_) {} });
     $("quickAddForm").addEventListener("submit", (event) => {
       event.preventDefault();
       const field = $("quickTaskInput");
-      const title = field.value.trim();
-      if (!title) return;
-      tasks.push({
-        id: makeId(), title, notes: "", date: null, completed: false,
-        main: false, rolled: false, demo: false, createdAt: new Date().toISOString()
-      });
-      field.value = "";
-      const saved = persist();
-      render();
-      if (!saved) return;
-      field.focus();
-      notify(tagUI?.filter ? "Added without a tag. Choose All tags to see it." : "Added to Inbox.");
+      try {
+        const result = captureTasks([{text:field.value,selected:true}], '');
+        field.value = ""; try { sessionStorage.removeItem("simpledo.typedDraft.v1"); } catch (_) {} field.focus(); notify(result);
+      } catch (error) { notify(error.message); }
     });
     els.taskDate.addEventListener("change", updateDateSelector);
     els.taskForm.addEventListener("submit", addOrUpdateTask);
@@ -1092,14 +1105,14 @@
     });
     document.addEventListener("keydown", (event) => {
       if (
-        event.key === "/" && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        event.key === "/" && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open && !$("captureDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
         els.searchInput.focus();
       }
       if (
-        (event.key === "n" || event.key === "N") && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        (event.key === "n" || event.key === "N") && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open && !$("captureDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
@@ -1209,14 +1222,20 @@
   snapshot = new SimpleDoSnapshot.Controller({tasks:()=>tasks,today:todayKey,catalog:()=>tagCatalog||{resolve:()=>null},palette:()=>SimpleDoTags.PALETTE});
   loadFocusSession();
   wireEvents();
+  capture = new SimpleDoCaptureUI.Controller({catalog:()=>tagCatalog, add:captureTasks, notify});
   setView("planner");
+  const captureShortcut = new URLSearchParams(location.search).get('capture');
+  if (storageReady && ['type','speak','scan'].includes(captureShortcut)) {
+    setView('inbox');
+    if (captureShortcut === 'type') $('quickTaskInput').focus(); else capture.open(captureShortcut);
+  }
   tickFocus();
   window.setInterval(tickFocus, 1000);
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
     tags: tagCatalog,
     tagsChanged() { tagUI.refresh(); render(); },
-    accountChanged: (client, user) => planning?.account(client, user),
+    accountChanged: (client, user) => { planning?.account(client, user); capture?.account(client, user); },
     changed(next) {
       if (saveFailed) return;
       tasks = next;
