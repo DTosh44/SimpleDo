@@ -334,3 +334,40 @@ body[data-active-view="inbox"] .inbox-panel {
     overscroll-behavior-y: auto;
   }
 }
+
+/* Small estimates and capacity cues stay within the existing day cards. */
+.task-estimate {font-size:10px;color:#777;font-variant-numeric:tabular-nums}
+.day-capacity {margin:-5px 22px 15px;max-width:480px}
+.capacity-text {font-size:11px;color:#737373;line-height:1.5}
+.capacity-bar {display:flex;height:3px;border-radius:3px;background:#ededed;overflow:hidden;margin-top:7px}
+.capacity-bar span {height:100%;flex-shrink:1}
+.capacity-meetings {background:#a5a5a5}
+.capacity-tasks {background:var(--purple,#74639c)}
+.capacity-full .capacity-tasks {background:var(--pink,#e3447d)}
+.capacity-source {display:block;color:#999;font-size:9px;margin-top:4px}
+.estimate-hint {font-size:11px;color:#888;margin:7px 0 0}
+.schedule-guidance {margin-top:12px;font-size:12px;color:#777;line-height:1.6}
+.schedule-guidance p:empty {display:none}
+.schedule-guidance p {margin:0 0 7px}
+.settings-section summary {font-size:14px;font-weight:700;cursor:pointer}
+.optional-label {font-size:11px;font-weight:400;color:#999;margin-left:6px}
+.working-day,.working-headings {display:grid;grid-template-columns:55px repeat(4,minmax(0,1fr));gap:5px;align-items:center;margin-top:8px}
+.working-headings {font-size:10px;color:#888;margin-top:16px}
+.working-day label {font-size:11px;display:flex;align-items:center;gap:3px}
+.working-day label input {margin:0;accent-color:#333}
+.working-day input[type=time] {width:100%;min-width:0;font-size:11px;padding:7px 2px;border:1px solid #ddd;border-radius:5px;background:#fff;color:#333}
+.calendar-provider {padding:14px 0;border-bottom:1px solid #eee}
+.calendar-provider strong {font-size:12px}
+.provider-status {display:block;font-size:11px;color:#888}
+.calendar-choices {margin:14px 0;max-height:180px;overflow:auto}
+.calendar-choices label {display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0;overflow-wrap:anywhere}
+.calendar-choices input {accent-color:#333;flex-shrink:0}
+#planningError,#calendarMessage {font-size:12px}
+.task-dialog {max-height:92dvh;overflow:auto}
+@media(max-width:650px) {
+ .day-capacity {margin-left:16px;margin-right:16px}
+ .capacity-text {font-size:10px}
+ .working-day,.working-headings {grid-template-columns:48px repeat(4,minmax(0,1fr));gap:3px}
+ .working-day input[type=time] {font-size:10px;padding:7px 0}
+}
+.settings-dialog #workingHoursForm {padding:0}

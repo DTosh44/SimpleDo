@@ -56,6 +56,7 @@
       const user = session?.user || null;
       if (this.user?.id !== user?.id) this.generation++;
       this.user = user;
+      this.hooks.accountChanged?.(this.client, user);
       this.allowed = Boolean(user && this.store.state.owner === user.id);
       this.$('signInForm').hidden = Boolean(user);
       this.$('signOut').hidden = !user;

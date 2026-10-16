@@ -1,6 +1,6 @@
 # SimpleDo
 
-**Plan it. Forget it. Do it.** A quiet, minimal task planner, with local backups and optional Supabase account sync.
+**Plan it. Forget it. Do it.** A quiet, minimal task planner, with local backups, optional Supabase account sync and calendar-aware capacity planning.
 
 [Open SimpleDo](https://dtosh44.github.io/SimpleDo/)
 
@@ -13,19 +13,35 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 - Today, One task, Main Thing, search, editing and completion
 - Unfinished past tasks return to Inbox
 - Per-task focus duration and a browser-local Pomodoro timer, including the browser-tab countdown (paused/finished states and normal-title restoration)
-- Discreet Settings with backup export/restore, account controls and sync status
+- Optional task duration estimates, working hours, quiet daily capacity bars and scheduling suggestions
+- Optional read-only Outlook/Microsoft 365 and Google Calendar connections
+- Discreet Settings with backup export/restore, account controls, working hours and calendars
 
 Tasks are saved on this device first. After one successful online load over HTTPS (or localhost), a service worker caches the app shell for offline reopening. Local tasks, backups, restoring and focus timers work offline. Running timers never sync between devices. Browser storage is not permanent archival storage: keep downloaded backups somewhere safe, especially before clearing browser data or switching devices.
+
+## Capacity planning and calendars
+
+Capacity works without an account. In **Settings → Working hours**, edit each weekday, its hours and optional break. Defaults are Monday–Friday, 09:00–17:00 with a 12:30–13:30 lunch. Choose an IANA time zone such as `Europe/London`; add specific dates off if needed. Hours must start and end on the same day. Settings save locally on this device and are included in backup exports.
+
+When creating or editing a task, **Estimated time** is optional: 15m, 30m, 1h, 2h or custom (1–10,080 minutes). This is the total expected task duration, independent of the Pomodoro/focus duration. Quick capture stays unchanged. Existing tasks remain unestimated until you choose a duration.
+
+Each planner day shows working time occupied by meetings, scheduled task estimates and estimated free time. Overlapping busy periods are counted once, only within working hours and outside breaks. Busy all-day/out-of-office events can remove a day's capacity. Completed tasks still count toward that day's estimated work; tasks without durations appear separately as **unestimated**. These are whole-day estimates, not a claim that all free time is one continuous slot or that today's earlier hours are still available.
+
+When the chosen day has insufficient estimated room, the editor suggests the first later day with enough capacity, searching the following 30 days. **Use suggested day** changes the chosen date only when clicked. Saving or dragging to a full day or a day off is always allowed; guidance never automatically moves a task. Without a calendar, suggestions explicitly use working hours only. With connected calendars, recommendations avoid dates outside freshly cached availability.
+
+**Calendar setup requires a Supabase backend and provider registrations.** See the complete [Outlook, Google Calendar and backend instructions](docs/calendar-setup.md), including SQL migration, OAuth scopes, encrypted token storage, Edge Function deployment, disconnect behavior and live acceptance tests. Frontend provider tokens and client secrets are never required. Calendar events never become SimpleDo tasks.
+
+Availability refreshes about every 15 minutes while visible and on return/reconnect. Only busy intervals and their coverage/timestamp are cached. Offline or failed refreshes are labelled as potentially outdated; unavailable dates are identified. Calendar connections, selected calendars and cached busy intervals are excluded from task backups. Signing out clears calendar availability from the browser; working hours remain local. Working hours are **not cloud-synchronised** in this version; estimates are part of the existing synced task payload.
 
 ## Back up and restore now — no Supabase needed
 
 1. Open **Settings → Export backup**.
 2. Save `SimpleDo-Backup-YYYY-MM-DD.json` somewhere safe.
 3. To restore, choose **Settings → Import backup** and select that file.
-4. **Merge with existing tasks** adds missing IDs. Existing task versions and known deletions win. Importing the same file repeatedly does not duplicate tasks.
-5. **Replace existing tasks** restores the backup's task list. You must check the explicit replacement warning. When sync is enabled, removals also sync to your account.
+4. **Merge with existing tasks** adds missing IDs. Existing task versions, working hours and known deletions win. Importing the same file repeatedly does not duplicate tasks.
+5. **Replace existing tasks** restores the backup's task list. Working hours from the backup are restored when present. You must check the explicit replacement warning. When sync is enabled, removals also sync to your account.
 
-The backup includes all live tasks, IDs, names, notes, dates, completion, Main Thing, focus duration, timestamps and other task fields. It excludes login tokens and running timer sessions. An intentionally deleted task can be restored from a backup using **Replace**; **Merge** respects deletion history. Invalid files are rejected before replacement. The separate **Inbox → Import tasks** remains an append-only list importer; it is not a full restore.
+The backup includes all live tasks, IDs, names, notes, dates, completion, Main Thing, focus duration, estimated duration, timestamps and other task fields, plus working-hours settings. It excludes login tokens and running timer sessions. An intentionally deleted task can be restored from a backup using **Replace**; **Merge** respects deletion history. Invalid files are rejected before replacement. The separate **Inbox → Import tasks** remains an append-only list importer; it is not a full restore.
 
 Before restoring or joining a different account, SimpleDo saves a local recovery copy. **Settings → Download recovery data** downloads that copy, the current saved data and the original pre-upgrade data, where available. To restore a recovery copy, extract the JSON object stored in `beforeRestore` and import it using **Import backup**. `preUpgrade` is the untouched original array; it can be wrapped as `{"app":"SimpleDo","version":1,"tasks":[...]}` for restore. Recovery downloads are private; do not commit or share them publicly. Only the latest pre-restore/account-merge snapshot is retained in this browser.
 
@@ -82,11 +98,11 @@ npm run test:browser
 
 Validated in this implementation:
 
-- 21 automated storage and simulated two-device controller tests: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
-- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones
-- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts
+- 42 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours backups, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
+- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; new calendar token/state tables deny both anonymous and signed-in browser roles
+- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions and dragging onto a day off
 
-**Not yet validated against a live Supabase project:** real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior, and physical iPhone/Safari behavior. PGlite and the simulated sync server do not replace these acceptance checks.
+**Not yet validated against live calendars or a live Supabase project:** real Outlook/Google OAuth, provider event accuracy and refresh-token renewal, physical iPhone/Safari behavior, plus real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior. PGlite and the simulated sync server do not replace these acceptance checks.
 
 Before considering cloud setup complete:
 

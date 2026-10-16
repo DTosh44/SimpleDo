@@ -103,3 +103,12 @@ test('JSONB property ordering does not manufacture a conflict', () => {
  store.receive(row(reordered,2,false,true),sent);
  assert.equal(store.live().length,1);
 });
+test('duration estimates and working hours survive backup/replace without changing focus preferences',()=>{
+ const C=require('../capacity.js'),{parseBackupDocument}=require('../data.js');const {store}=setup();
+ const settings={...C.defaults(),timeZone:'Europe/London'};store.updatePlanningSettings(settings);
+ store.commit([{...store.live()[0],estimateMinutes:120}]);const doc=parseBackupDocument(JSON.stringify(store.backup()));
+ assert.equal(doc.tasks[0].estimateMinutes,120);assert.equal(doc.tasks[0].focusMinutes,45);assert.equal(doc.planningSettings.timeZone,'Europe/London');
+ store.restore([],true);store.restore(doc.tasks,true,doc.planningSettings);assert.equal(store.live()[0].estimateMinutes,120);
+ assert.throws(()=>parseBackupDocument(JSON.stringify({...store.backup(),planningSettings:{timeZone:'bad'}})));
+ assert.throws(()=>parseBackupDocument(JSON.stringify({...store.backup(),tasks:[{...task(),estimateMinutes:-1}]})));
+});

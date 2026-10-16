@@ -110,6 +110,8 @@
   const store = new SimpleDoData.Store(localStorage);
   let storageReady = false;
   let cloud = null;
+  let planning = null;
+  let suggestedDate = null;
   let saveFailed = false;
   function load() {
     try {
@@ -226,6 +228,10 @@
     body.append(title);
     const meta = document.createElement("span");
     meta.className = "task-meta";
+    if (task.estimateMinutes) {
+      const estimate = document.createElement("span"); estimate.className = "task-estimate";
+      estimate.textContent = "~" + SimpleDoCapacity.duration(task.estimateMinutes); estimate.title = "Estimated total task time"; meta.append(estimate);
+    }
     if (task.conflictOf) {
       const recovered = document.createElement("span");
       recovered.className = "rolled-tag"; recovered.textContent = "Recovered edit";
@@ -383,7 +389,9 @@
       } else {
         dayTasks.forEach((t) => stack.append(makeTaskCard(t)));
       }
-      card.append(header, stack);
+      card.append(header);
+      if (planning) card.append(planning.indicator(key, tasks));
+      card.append(stack);
       els.daysRoot.append(card);
     }
     els.moreDaysButton.hidden = activeView === "today" || activeView === "one-task" || Boolean(query) || daysVisible >= 365;
@@ -408,6 +416,7 @@
     });
     document.body.dataset.activeView = activeView;
     updateFocusIndicator();
+    if (els.taskDialog.open) updateSchedulingGuidance();
   }
 
   function setView(view) {
@@ -448,6 +457,7 @@
     els.customDateWrap.hidden = !custom;
     els.customDateInput.required = custom;
     if (custom && !els.customDateInput.value) els.customDateInput.value = todayKey();
+    updateSchedulingGuidance();
   }
 
   function openTask(taskId = null, defaultDate = null) {
@@ -460,6 +470,10 @@
     els.taskTitle.value = task ? task.title : "";
     els.taskNotes.value = task ? task.notes : "";
     els.taskMain.checked = task ? task.main : false;
+    const estimate = task?.estimateMinutes || "";
+    $("taskEstimate").value = ["",15,30,60,120].includes(estimate) ? String(estimate) : "custom";
+    $("estimateCustomMinutes").value = estimate || "";
+    updateEstimate();
     const date = task ? task.date : defaultDate;
     els.taskDate.value = dateChoiceFor(date);
     els.customDateInput.min = todayKey();
@@ -493,6 +507,8 @@
       els.taskTitle.focus();
       return;
     }
+    const estimateMinutes = chosenEstimate();
+    if (estimateMinutes !== null && (!Number.isInteger(estimateMinutes) || estimateMinutes < 1 || estimateMinutes > 10080)) { notify("Enter an estimated duration from 1 to 10,080 minutes."); return; }
     const date = chosenDate();
     if (date && date < todayKey()) {
       notify("Choose today or a future day.");
@@ -518,15 +534,18 @@
       };
       tasks.push(task);
     }
+    task.estimateMinutes = estimateMinutes;
     if (task.main && date) {
       tasks.forEach((other) => {
         if (other.id !== task.id && other.date === date) other.main = false;
       });
     }
+    const guidance = date && planning ? planning.guidance(date, estimateMinutes, tasks, task.id) : null;
     if (!persist()) { render(); return; }
     closeTask();
     render();
-    notify(editingId ? "Task updated." : "Task added.");
+    if (guidance && (guidance.current.free < (estimateMinutes || 0) || guidance.current.free === 0)) notify(guidance.text);
+    else notify(editingId ? "Task updated." : "Task added.");
   }
 
   function removeTask() {
@@ -558,7 +577,8 @@
     task.demo = false;
     persist();
     render();
-    notify(destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
+    const guidance = targetDate && planning ? planning.guidance(targetDate, task.estimateMinutes, tasks, task.id) : null;
+    notify(guidance && (guidance.current.free < (task.estimateMinutes || 0) || guidance.current.free === 0) ? guidance.text : destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
   }
 
   function bindDragDrop() {
@@ -1036,6 +1056,7 @@
     });
     els.moreDaysButton.addEventListener("click", () => {
       daysVisible = Math.min(daysVisible + 30, 365);
+      planning?.calendar.range(daysVisible);
       render();
     });
     els.jumpTodayButton.addEventListener("click", () => {
@@ -1078,6 +1099,7 @@
       if (event.key === SimpleDoData.KEY) {
         if (saveFailed) return;
         load();
+        planning?.reload();
         if (focusSession && !tasks.some((t) => t.id === focusSession.taskId && !t.completed))
           clearFocusForTask(focusSession.taskId);
         render();
@@ -1100,7 +1122,7 @@
   $("closeSettings").onclick = () => $("settingsDialog").close();
   $("exportBackup").onclick = () => {
     // Include current in-memory edits even if browser storage has become full.
-    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks },
+    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks, planningSettings: planning?.settings },
       "SimpleDo-Backup-" + todayKey() + ".json");
   };
   $("recoveryDownload").onclick = () => downloadJSON({
@@ -1114,8 +1136,8 @@
     try {
       if (!storageReady) throw new Error("Resolve the storage error before restoring a backup.");
       if (file.size > 20_000_000) throw new Error("Please choose a backup smaller than 20 MB.");
-      backupToRestore = SimpleDoData.parseBackup(await file.text());
-      $("restoreCount").textContent = backupToRestore.length + " tasks in this backup.";
+      backupToRestore = SimpleDoData.parseBackupDocument(await file.text());
+      $("restoreCount").textContent = backupToRestore.tasks.length + " tasks in this backup.";
       $("replaceConfirm").checked = false; $("replaceBackup").disabled = true;
       $("restoreError").textContent = "";
       $("settingsDialog").close(); $("restoreDialog").showModal();
@@ -1126,7 +1148,8 @@
   function restoreBackup(replace) {
     if (!backupToRestore || (replace && !$("replaceConfirm").checked)) return;
     try {
-      tasks = store.restore(backupToRestore, replace);
+      tasks = store.restore(backupToRestore.tasks, replace, replace ? backupToRestore.planningSettings : undefined);
+      planning?.reload();
       if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
       localStorage.setItem(DEMO_KEY, "true");
       backupToRestore = null; $("restoreDialog").close(); render();
@@ -1136,7 +1159,29 @@
   $("mergeBackup").onclick = () => restoreBackup(false);
   $("replaceBackup").onclick = () => restoreBackup(true);
 
+  function chosenEstimate() {
+    return $("taskEstimate").value === "" ? null : Number($("taskEstimate").value === "custom" ? $("estimateCustomMinutes").value : $("taskEstimate").value);
+  }
+  function updateEstimate() {
+    const custom = $("taskEstimate").value === "custom";
+    $("estimateCustomWrap").hidden = !custom; $("estimateCustomMinutes").required = custom;
+    updateSchedulingGuidance();
+  }
+  function updateSchedulingGuidance() {
+    if (!planning) return;
+    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId);
+    $("scheduleMessage").textContent = result.text;
+    suggestedDate = result.date; $("useSuggestedDay").hidden = !suggestedDate;
+  }
+  $("taskEstimate").onchange = updateEstimate;
+  $("estimateCustomMinutes").oninput = updateSchedulingGuidance;
+  els.customDateInput.addEventListener("input", updateSchedulingGuidance);
+  $("useSuggestedDay").onclick = () => {
+    if (!suggestedDate) return;
+    els.taskDate.value = "custom"; els.customDateInput.value = suggestedDate; updateDateSelector();
+  };
   load();
+  if (storageReady) planning = new SimpleDoPlanning.Controller(store, {changed: () => render()});
   loadFocusSession();
   wireEvents();
   setView("planner");
@@ -1144,6 +1189,7 @@
   window.setInterval(tickFocus, 1000);
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
+    accountChanged: (client, user) => planning?.account(client, user),
     changed(next) {
       if (saveFailed) return;
       tasks = next;
