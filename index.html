@@ -7,7 +7,7 @@
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=15">
+  <link rel="stylesheet" href="./styles.css?v=17">
   <script src="./tags.js?v=14" defer></script>
   <script src="./tag-ui.js?v=13" defer></script>
   <script src="./capacity.js?v=13" defer></script>
@@ -20,7 +20,8 @@
   <script src="./snapshot.js?v=14" defer></script>
   <script src="./capture.js?v=15" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
-  <script src="./app.js?v=16" defer></script>
+  <script src="./daily.js?v=17" defer></script>
+  <script src="./app.js?v=17" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -43,7 +44,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.13</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.14</span></div>
     </aside>
 
     <div class="content">
@@ -64,6 +65,7 @@
           <div class="eyebrow"><span class="eyebrow-line"></span><span id="currentDateLabel">YOUR SPACE, YOUR PACE</span></div>
           <h1 id="pageTitle">Make room for today<span class="full-stop">.</span></h1>
           <p id="pageDescription">Everything on your mind, with space to focus on what matters now.</p>
+          <div id="todayOverview" class="today-overview" hidden><progress id="todayProgress" max="1" value="0" aria-label="Today's task completion" aria-describedby="pageDescription"></progress><div id="todayCapacity"></div></div>
         </div>
 
         <div class="demo-banner" id="demoBanner">
@@ -79,6 +81,13 @@
                 <div class="overline">ONE DAY AT A TIME</div>
                 <h2 id="timelineTitle">Your days</h2>
               </div>
+            </div>
+            <div id="todayView" class="today-view" hidden>
+              <p id="todayFilterNote" class="today-filter-note" hidden></p>
+              <section id="todayFeatured" aria-label="Featured task"></section>
+              <section id="todayAlsoSection" class="today-also" aria-labelledby="todayAlsoHeading"><div class="today-section-heading"><h2 id="todayAlsoHeading">Also today</h2><span id="todayAlsoCount"></span></div><div id="todayTasks" class="today-list"></div></section>
+              <details id="todayCompleted" class="today-completed"><summary>Completed <span id="todayCompletedCount">(0)</span></summary><div id="todayCompletedTasks" class="today-list"></div></details>
+              <button type="button" class="button button-outline today-add" id="todayAdd">＋ Add a task for today</button>
             </div>
             <div id="daysRoot" class="days-root"></div>
             <button type="button" class="more-days" id="moreDaysButton">Show another 30 days <span aria-hidden="true">↓</span></button>
@@ -159,6 +168,7 @@
       </div>
       <div class="schedule-guidance" id="scheduleGuidance" aria-live="polite"><p id="scheduleMessage"></p><button type="button" class="inbox-import-button" id="useSuggestedDay" hidden>Use suggested day</button></div>
       <label class="main-checkbox" for="taskMain"><input id="taskMain" type="checkbox"><span><strong>Make this the Main Thing</strong><small>Give this task a little more attention on its day.</small></span></label>
+      <div id="taskOrderControls" class="task-order-controls" hidden><span class="field-label">Order on this day</span><div><button type="button" class="button button-outline" id="taskEarlier">↑ Earlier</button><button type="button" class="button button-outline" id="taskLater">↓ Later</button></div></div>
       <div class="task-editor-focus" id="taskEditorFocusRow" hidden><button type="button" class="button button-outline" id="startTaskFromEditor"><span aria-hidden="true">▶</span> Start task with a focus timer</button></div>
       <div class="dialog-actions"><button type="button" class="button button-danger" id="deleteTaskButton" hidden>Delete task</button><span class="dialog-spacer"></span><button type="button" class="button button-outline" id="cancelTaskButton">Cancel</button><button class="button button-dark" type="submit" id="saveTaskButton">Save task</button></div>
     </form>
