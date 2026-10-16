@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
-  <link rel="stylesheet" href="./styles.css?v=6">
-  <script src="./app.js?v=6" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=7">
+  <script src="./app.js?v=7" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -29,7 +29,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.6</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.7</span></div>
     </aside>
 
     <div class="content">
@@ -38,6 +38,7 @@
         <div class="top-actions">
           <label class="search-box" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search tasks" autocomplete="off" aria-label="Search tasks"><kbd>/</kbd></label>
           <span class="preview-pill"><span class="status-dot"></span> Preview</span>
+          <button type="button" class="global-focus-button" id="globalFocusButton" hidden aria-label="Return to focus timer"><span aria-hidden="true">◷</span> <span id="globalFocusTime">25:00</span></button>
           <button type="button" class="button button-dark new-task" id="newTaskButton"><span aria-hidden="true">＋</span> New task</button>
         </div>
       </header>
@@ -114,8 +115,59 @@
         <input type="date" class="field-input" id="customDateInput">
       </div>
       <label class="main-checkbox" for="taskMain"><input id="taskMain" type="checkbox"><span><strong>Make this the Main Thing</strong><small>Give this task a little more attention on its day.</small></span></label>
+      <div class="task-editor-focus" id="taskEditorFocusRow" hidden><button type="button" class="button button-outline" id="startTaskFromEditor"><span aria-hidden="true">▶</span> Start task with a focus timer</button></div>
       <div class="dialog-actions"><button type="button" class="button button-danger" id="deleteTaskButton" hidden>Delete task</button><span class="dialog-spacer"></span><button type="button" class="button button-outline" id="cancelTaskButton">Cancel</button><button class="button button-dark" type="submit" id="saveTaskButton">Save task</button></div>
     </form>
+  </dialog>
+  <dialog class="focus-dialog" id="focusDialog" aria-labelledby="focusHeading">
+    <div class="focus-dialog-inner">
+      <header class="focus-dialog-header">
+        <div><div class="overline">ONE THING AT A TIME</div><h2 id="focusHeading">Start a focus session</h2></div>
+        <button type="button" class="icon-button" id="closeFocusDialog" aria-label="Close focus timer">×</button>
+      </header>
+      <p class="focus-task-label" id="focusTaskLabel"></p>
+      <div id="focusSetup" class="focus-setup">
+        <label class="field-label" for="focusDurationSelect">How long would you like to focus?</label>
+        <select id="focusDurationSelect" class="field-input">
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="20">20 minutes</option>
+          <option value="25" selected>25 minutes · classic Pomodoro</option>
+          <option value="30">30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+          <option value="custom">Custom duration...</option>
+        </select>
+        <div id="focusCustomWrap" hidden>
+          <label class="field-label" for="focusCustomMinutes">Minutes (1–180)</label>
+          <input id="focusCustomMinutes" class="field-input" type="number" min="1" max="180" step="1" value="25" inputmode="numeric">
+        </div>
+        <p class="focus-hint">Start with 25 minutes, or choose your own. After focusing, you can take an optional 5-minute break.</p>
+        <div class="focus-dialog-actions">
+          <button type="button" class="button button-outline" id="focusCancelButton">Cancel</button>
+          <button type="button" class="button button-dark" id="focusStartButton">▶ Start task</button>
+        </div>
+      </div>
+      <div id="focusSessionView" hidden>
+        <div class="focus-clock" role="timer" aria-label="Time remaining" aria-live="off">
+          <div class="focus-countdown" id="focusCountdown">25:00</div>
+          <div class="focus-phase" id="focusPhase">Focus time</div>
+        </div>
+        <div class="focus-progress-track" role="progressbar" id="focusProgressTrack" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Session progress">
+          <div class="focus-progress-fill" id="focusProgressFill"></div>
+        </div>
+        <p id="focusSessionHint" class="focus-hint focus-hint-center"></p>
+        <div class="focus-dialog-actions focus-session-actions">
+          <button type="button" class="button button-outline" id="focusStopButton">End session</button>
+          <button type="button" class="button button-outline" id="focusPauseButton">Pause</button>
+          <button type="button" class="button button-dark" id="focusCompleteButton">✓ Task done</button>
+        </div>
+        <div id="focusFinishActions" class="focus-finish-actions" hidden>
+          <button type="button" class="button button-outline" id="focusBreakButton">Take a 5-minute break</button>
+          <button type="button" class="button button-outline" id="focusAnotherButton">Start another session</button>
+        </div>
+      </div>
+    </div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
