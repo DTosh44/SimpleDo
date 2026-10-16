@@ -45,6 +45,7 @@ body[data-active-view="one-task"] .task-check{width:23px;height:23px}
   --orange: #ef9b2d;
   --blue: #4578c9;
   --purple: #7851ad;
+  --mustard: #e0c44d;
   --stripe: linear-gradient(90deg,
     var(--pink) 0% 23%,
     var(--orange) 23% 46%,
@@ -506,3 +507,54 @@ body[data-active-view=today] .tag-filter-row {margin:0 0 16px}
 .today-completed .today-task-row {opacity:1}.today-completed .today-task-row .task-text {color:#737373}
 body[data-active-view=today] .global-focus-button {min-height:44px}
 body[data-active-view=today] .welcome {max-width:820px}
+
+/* v0.15: small, consistent colour cues throughout; white canvas stays white. */
+.inbox-panel,body[data-active-view="inbox"] .inbox-panel {
+  padding:0;border:0;border-radius:0;box-shadow:none;background:transparent;
+}
+.inbox-panel .section-top,.timeline-heading {align-items:flex-start;}
+.inbox-panel .section-title-row h2,.timeline-heading h2 {margin-top:9px;}
+.inbox-panel .section-top .overline::before,.timeline-heading .overline::before {
+  content:"";display:inline-block;width:6px;height:6px;border-radius:50%;
+  margin-right:8px;vertical-align:1px;
+}
+.timeline-heading .overline::before {background:var(--blue);}
+.inbox-panel .section-top .overline::before {background:var(--orange);}
+.inbox-panel .panel-symbol {color:var(--orange);}
+.inbox-panel .count-tag {background:#fff2e1;color:#865017;}
+.inbox-panel .section-intro {color:#777;}
+.inbox-panel .inbox-helper {border-top-color:#dedede;}
+body[data-active-view=planner] .nav-item.active {box-shadow:inset 3px 0 0 var(--blue);}
+body[data-active-view=inbox] .nav-item.active {box-shadow:inset 3px 0 0 var(--orange);}
+body[data-active-view=today] .nav-item.active {box-shadow:inset 3px 0 0 var(--pink);}
+body[data-active-view=one-task] .nav-item.active {box-shadow:inset 3px 0 0 var(--purple);}
+body[data-active-view=snapshot] .nav-item.active {box-shadow:inset 3px 0 0 var(--mustard);}
+body[data-active-view=planner] .nav-item.active .nav-icon {color:var(--blue);}
+body[data-active-view=inbox] .nav-item.active .nav-icon {color:var(--orange);}
+body[data-active-view=today] .nav-item.active .nav-icon {color:var(--pink);}
+body[data-active-view=one-task] .nav-item.active .nav-icon {color:var(--purple);}
+body[data-active-view=snapshot] .nav-item.active .nav-icon {color:#95791f;}
+body[data-active-view=planner] .eyebrow-line {background:var(--blue);}
+body[data-active-view=inbox] .eyebrow-line {background:var(--orange);}
+body[data-active-view=today] .eyebrow-line {background:var(--pink);}
+body[data-active-view=one-task] .eyebrow-line {background:var(--purple);}
+body[data-active-view=snapshot] .eyebrow-line {background:var(--mustard);}
+.day-add {color:var(--blue);}
+.day-card.today .day-add {color:var(--pink);}
+.day-toggle .day-chevron {border-color:#5980c4;}
+body[data-active-view=one-task] .day-card {border-top:2px solid var(--purple);}
+body[data-active-view=one-task] .day-add {color:var(--purple);}
+#captureSpeak {color:var(--purple);}
+#captureScan {color:var(--orange);}
+#captureSpeak:hover {background:#f5f0fa;}
+#captureScan:hover {background:#fff4e7;}
+.inbox-panel .inbox-import-button:hover {border-color:var(--orange);}
+.today-feature-label {color:#a32953;}
+.today-section-heading::before {
+  content:"";width:6px;height:6px;display:inline-block;border-radius:50%;
+  background:var(--pink);flex-shrink:0;
+}
+.today-completed summary::marker {color:var(--purple);}
+.today-list .today-task-row .task-focus-button:hover {border-color:var(--purple);}
+.today-add:hover {border-color:var(--pink);}
+.global-focus-button {border-left:3px solid var(--pink);}
