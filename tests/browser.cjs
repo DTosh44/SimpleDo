@@ -79,6 +79,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
       if(!localStorage.getItem('simpledo.data.v2'))localStorage.setItem('simpledo.tasks.v1',JSON.stringify([{...legacy,id:'full-day',title:'Existing scheduled work',date:tuesday,estimateMinutes:390}]));
     },{legacy,tuesday});
     await capacityPage.goto(base);
+    const expandDay=async key=>{const toggle=capacityPage.locator('#day-'+key+' .day-toggle');if(await toggle.getAttribute('aria-expanded')==='false')await toggle.click();};
     await capacityPage.locator('#newTaskButton').click();await capacityPage.locator('#taskTitle').fill('Two hour task');
     await capacityPage.locator('#taskEstimate').selectOption('120');await capacityPage.locator('#taskDate').selectOption('custom');await capacityPage.locator('#customDateInput').fill(tuesday);
     await capacityPage.locator('#scheduleMessage').filter({hasText:'Wednesday'}).waitFor();
@@ -87,10 +88,12 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('#saveTaskButton').click();
     const estimateTask=await capacityPage.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).find(r=>r.task.title==='Two hour task').task);
     assert.equal(estimateTask.estimateMinutes,120);assert.equal(estimateTask.date,wednesday);assert.equal(estimateTask.focusMinutes,undefined);
+    await expandDay(wednesday);
     await capacityPage.getByRole('button',{name:'Edit Two hour task',exact:true}).first().click();
     await capacityPage.locator('#customDateInput').fill(tuesday);await capacityPage.locator('#saveTaskButton').click();
     assert.equal(await capacityPage.evaluate(id=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records[id].task.date,estimateTask.id),tuesday,'user may ignore capacity guidance');
     assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/over/);
+    await expandDay(tuesday);
     await capacityPage.setViewportSize({width:1440,height:2600});
     await capacityPage.locator('[data-task-id="'+estimateTask.id+'"]').first().dragTo(capacityPage.locator('#day-'+sunday));
     assert.equal(await capacityPage.evaluate(id=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records[id].task.date,estimateTask.id),sunday,'drag onto a day off is accepted');
@@ -132,7 +135,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h 30m other time/);
     const preserved=await capacityPage.evaluate(()=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records['full-day'].task);assert.equal(preserved.tagId,undefined);
     await capacityPage.evaluate(()=>navigator.serviceWorker.ready);await capacityPage.waitForFunction(()=>navigator.serviceWorker.controller);
-    await capacityContext.setOffline(true);await capacityPage.reload();assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);await capacityContext.setOffline(false);
+    await capacityContext.setOffline(true);await capacityPage.reload();await expandDay(tuesday);assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);await capacityContext.setOffline(false);
     await capacityPage.setViewportSize({width:390,height:844});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-mobile.png'});
     await capacityPage.setViewportSize({width:1440,height:1000});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-desktop.png'});
     await capacityPage.locator('#tagFilter').selectOption('home');

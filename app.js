@@ -73,6 +73,9 @@
   let tasks = [];
   let activeView = "planner";
   let daysVisible = 30;
+  const expandedDays = new Map();
+  let renderedToday = null;
+  let lastRenderedDate = null;
   let query = "";
   let editingId = null;
   let editingSnapshot = null;
@@ -178,6 +181,7 @@
     for (const task of tasks) {
       if (!task.completed && task.date && task.date < today) {
         task.date = null;
+        delete task.dayOrder;
         task.rolled = true;
         changed = true;
       }
@@ -199,17 +203,26 @@
     return list.filter((task) => (task.title + " " + task.notes).toLocaleLowerCase().includes(query));
   }
 
-  function sortTasks(list) {
-    return [...list].sort((a, b) =>
-      Number(a.completed) - Number(b.completed) ||
-      Number(b.main) - Number(a.main) ||
-      String(a.createdAt).localeCompare(String(b.createdAt))
-    );
+  const sortTasks = list => SimpleDoDaily.ordered(list);
+
+  function toggleTask(task, daily = false) {
+    task.completed = !task.completed;
+    if (task.completed) clearFocusForTask(task.id);
+    const saved = persist();
+    render();
+    if (daily) {
+      const row = [...$('todayView').querySelectorAll('[data-task-id]')].find(el=>el.dataset.taskId===task.id);
+      const next = row && !row.closest('details:not([open])') ? row.querySelector('input,button') : null;
+      (next || $('todayFeatured').querySelector('[data-focus-task-id]') || $('todayCompleted').querySelector('summary')).focus();
+    }
+    if (saved) notify(task.completed ? "Nicely done. Task completed." : "Task marked incomplete.");
   }
 
-  function makeTaskCard(task) {
+  function makeTaskCard(task, mode = "card") {
     const card = document.createElement("article");
     card.className = "task-card" + (task.completed ? " is-done" : "") + (task.main ? " main-task" : "");
+    if (mode === "row") card.classList.add("today-task-row");
+    if (mode === "featured") card.classList.add("today-feature");
     card.draggable = true;
     card.dataset.taskId = task.id;
     card.setAttribute("aria-label", task.title);
@@ -231,14 +244,7 @@
     check.textContent = task.completed ? "✓" : "";
     check.setAttribute("aria-label", task.completed ? "Mark " + task.title + " incomplete" : "Mark " + task.title + " complete");
     check.setAttribute("aria-pressed", String(task.completed));
-    check.addEventListener("click", () => {
-      task.completed = !task.completed;
-      if (task.completed) clearFocusForTask(task.id);
-      const saved = persist();
-      render();
-      if (!saved) return;
-      notify(task.completed ? "Nicely done. Task completed." : "Task marked incomplete.");
-    });
+    check.addEventListener("click", () => toggleTask(task, mode !== "card"));
 
     const body = document.createElement("button");
     body.type = "button";
@@ -295,14 +301,56 @@
       focusButton.dataset.focusTaskId = task.id;
       focusButton.addEventListener("click", () => openFocus(task.id));
       const current = focusSession && focusSession.taskId === task.id;
-      focusButton.textContent = current ? focusButtonText() : "▶ Start";
+      focusButton.textContent = current ? focusButtonText() : mode === "card" ? "▶ Start" : "Start focus";
       focusButton.classList.toggle("is-timing", Boolean(current));
-      focusButton.setAttribute("aria-label", current ? "Return to timer for " + task.title : "Start task: " + task.title);
-      card.append(check, body, focusButton, edit);
+      focusButton.setAttribute("aria-label", current ? "Return to timer for " + task.title : (mode === "card" ? "Start task: " : "Start focus for ") + task.title);
+      if (mode === "featured") {
+        const label = document.createElement('h2'); label.className='today-feature-label'; label.textContent=task.main?'The Main Thing':'Up next';
+        check.className='button button-outline today-done'; check.textContent='✓ Done';
+        focusButton.classList.add('button','button-dark');
+        const actions=document.createElement('div'); actions.className='today-feature-actions'; actions.append(focusButton,check);
+        card.append(label,body,actions);
+      } else card.append(check, body, focusButton, edit);
     } else {
       card.append(check, body, edit);
     }
+    if (mode === 'row') {
+      const label=document.createElement('label');label.className='today-check';
+      const input=document.createElement('input');input.type='checkbox';input.checked=task.completed;
+      input.setAttribute('aria-label',`Mark ${task.title} ${task.completed?'incomplete':'complete'}`);
+      input.onchange=()=>toggleTask(task,true);label.append(input);check.replaceWith(label);
+      edit.remove();
+    }
     return card;
+  }
+
+  function renderToday() {
+    const key=todayKey(),all=tasks.filter(t=>t.date===key),state=SimpleDoDaily.summarize(all,matching(all));
+    $('todayView').classList.add('dropzone');$('todayView').dataset.date=key;
+    if(renderedToday!==key){$('todayCompleted').open=false;renderedToday=key;}
+    $('pageTitle').textContent=new Intl.DateTimeFormat('en-GB',{weekday:'long',day:'numeric',month:'long'}).format(dateFromKey(key));
+    $('pageDescription').textContent=`${state.done} of ${state.total} completed · ${state.remaining} remaining`;
+    $('pageDescription').setAttribute('aria-live','polite');
+    $('todayProgress').max=state.total||1;$('todayProgress').value=state.done;
+    $('todayProgress').setAttribute('aria-valuetext',`${state.done} of ${state.total} completed`);
+    $('todayCapacity').replaceChildren();if(planning)$('todayCapacity').append(planning.indicator(key,all));
+    $('todayFilterNote').hidden=!(query||tagUI?.filter);$('todayFilterNote').textContent=`Showing ${state.visible} of ${state.total} tasks. Progress includes all of today.`;
+    $('todayFeatured').replaceChildren();
+    if(state.featured)$('todayFeatured').append(makeTaskCard(state.featured,'featured'));
+    else {
+      const empty=document.createElement('div');empty.className='today-empty';
+      const title=document.createElement('h2'),text=document.createElement('p');
+      title.textContent=!state.total?'A little breathing room':!state.remaining?'All done for today':'No matching tasks';
+      text.textContent=!state.total?'Nothing scheduled for today.':!state.remaining?'Everything you planned for today is complete.':'Try another tag or search to see the rest of your day.';
+      empty.append(title,text);$('todayFeatured').append(empty);
+    }
+    $('todayAlsoSection').hidden=!state.others.length;$('todayAlsoCount').textContent=String(state.others.length);
+    $('todayTasks').replaceChildren(...state.others.map(t=>makeTaskCard(t,'row')));
+    $('todayCompleted').hidden=!state.completed.length;$('todayCompletedCount').textContent=`(${state.completed.length})`;
+    // Completed rows are created only when opened, keeping the daily workspace light.
+    const fillCompleted=()=>{$('todayCompletedTasks').replaceChildren(...state.completed.map(t=>makeTaskCard(t,'row')));};
+    $('todayCompletedTasks').replaceChildren();if($('todayCompleted').open)fillCompleted();
+    $('todayCompleted').ontoggle=()=>{if($('todayCompleted').open)fillCompleted();};
   }
 
   function renderInbox() {
@@ -341,105 +389,59 @@
 
   function renderDays() {
     els.daysRoot.replaceChildren();
-    const visible = activeView === "today" || activeView === "one-task" ? 1 : daysVisible;
-    for (let offset = 0; offset < visible; offset++) {
-      const date = dateAtOffset(offset);
-      const key = formatKey(date);
-      const allForDay = tasks.filter((t) => t.date === key);
-      // Main Thing wins; otherwise the oldest unfinished task is next.
-      // Completing it automatically reveals the next available task.
-      const dayTasks = activeView === "one-task"
-        ? sortTasks(matching(allForDay.filter((t) => !t.completed))).slice(0, 1)
-        : sortTasks(matching(allForDay));
-      const finished = allForDay.filter((t) => t.completed).length;
-
-      const card = document.createElement("section");
-      card.className = "day-card dropzone" + (offset === 0 ? " today" : "");
-      card.dataset.date = key;
-      card.id = "day-" + key;
-      const header = document.createElement("div");
-      header.className = "day-header";
-      const dateBox = document.createElement("div");
-      dateBox.className = "day-date";
-      const number = document.createElement("div");
-      number.className = "day-number";
-      number.textContent = String(date.getDate());
-      const month = document.createElement("div");
-      month.className = "day-month";
-      month.textContent = new Intl.DateTimeFormat("en-GB", { month: "short" }).format(date);
-      dateBox.append(number, month);
-
-      const info = document.createElement("div");
-      const dayName = document.createElement("div");
-      dayName.className = "day-name";
-      dayName.textContent = new Intl.DateTimeFormat("en-GB", { weekday: "long" }).format(date);
-      if (offset === 0) {
-        const todayTag = document.createElement("span");
-        todayTag.className = "today-label";
-        todayTag.textContent = "Today";
-        dayName.append(todayTag);
-      }
-      const summary = document.createElement("div");
-      summary.className = "day-summary";
-      if (activeView === "one-task") {
-        const remaining = allForDay.filter((t) => !t.completed).length;
-        summary.textContent = remaining ? remaining + " " + (remaining === 1 ? "task" : "tasks") + " remaining today" : "All caught up for today";
-      } else if (!allForDay.length) {
-        summary.textContent = "A little breathing room";
-      } else if (finished === allForDay.length) {
-        summary.textContent = "All done — well played";
-      } else {
-        summary.textContent = allForDay.length + " " + (allForDay.length === 1 ? "task" : "tasks") +
-          " · " + finished + " completed";
-      }
-      info.append(dayName, summary);
-
-      const add = document.createElement("button");
-      add.type = "button";
-      add.className = "day-add";
-      add.textContent = "+";
-      add.setAttribute("aria-label", "Add task for " + dayName.firstChild.textContent);
-      add.addEventListener("click", () => openTask(null, key));
-
-      header.append(dateBox, info, add);
-      const stack = document.createElement("div");
-      stack.className = "day-tasks" + (!dayTasks.length ? " empty" : "");
-      if (!dayTasks.length) {
-        const empty = document.createElement("div");
-        empty.className = "day-placeholder";
-        empty.textContent = activeView === "one-task" && tagUI?.filter && allForDay.some(t => !t.completed)
-          ? "No matching tasks for this tag today."
-          : activeView === "one-task"
-          ? "You\u2019re all caught up. Nothing else to do today."
-          : (query || tagUI?.filter) ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
-        stack.append(empty);
-      } else {
-        dayTasks.forEach((t) => stack.append(makeTaskCard(t)));
-      }
-      card.append(header);
-      if (planning) card.append(planning.indicator(key, tasks));
-      card.append(stack);
-      els.daysRoot.append(card);
+    const isOne=activeView==='one-task',visible=isOne?1:daysVisible,byDate=new Map();
+    for(const task of tasks){if(!byDate.has(task.date))byDate.set(task.date,[]);byDate.get(task.date).push(task);}
+    for(let offset=0;offset<visible;offset++) {
+      const date=dateAtOffset(offset),key=formatKey(date),all=byDate.get(key)||[];
+      const dayTasks=sortTasks(matching(isOne?all.filter(t=>!t.completed):all)),shown=isOne?dayTasks.slice(0,1):dayTasks;
+      const finished=all.filter(t=>t.completed).length;
+      const card=document.createElement('section');card.className='day-card dropzone'+(offset===0?' today':'');card.dataset.date=key;card.id='day-'+key;
+      const header=document.createElement('div');header.className='day-header';
+      const toggle=document.createElement(isOne?'div':'button');toggle.className='day-toggle';if(!isOne)toggle.type='button';
+      const dateBox=document.createElement('span');dateBox.className='day-date';
+      const number=document.createElement('span');number.className='day-number';number.textContent=String(date.getDate());
+      const month=document.createElement('span');month.className='day-month';month.textContent=new Intl.DateTimeFormat('en-GB',{month:'short'}).format(date);dateBox.append(number,month);
+      const info=document.createElement('span');info.className='day-info';
+      const dayName=document.createElement('span');dayName.className='day-name';dayName.textContent=new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(date);
+      if(offset===0){const tag=document.createElement('span');tag.className='today-label';tag.textContent='Today';dayName.append(tag);}
+      const summary=document.createElement('span');summary.className='day-summary';
+      summary.textContent=isOne?(all.some(t=>!t.completed)?all.filter(t=>!t.completed).length+' remaining today':'All caught up for today'):!all.length?'No tasks scheduled':`${all.length} ${all.length===1?'task':'tasks'} · ${finished} completed`;
+      info.append(dayName,summary);toggle.append(dateBox,info);
+      const add=document.createElement('button');add.type='button';add.className='day-add';add.textContent='+';add.setAttribute('aria-label','Add task for '+new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(date));add.onclick=()=>openTask(null,key);
+      const stack=document.createElement('div');stack.className='day-tasks'+(!shown.length?' empty':'');stack.id='tasks-'+key;
+      const fill=()=>{if(stack.childNodes.length)return;if(shown.length)stack.append(...shown.map(t=>makeTaskCard(t)));else{const empty=document.createElement('div');empty.className='day-placeholder';empty.textContent=(query||tagUI?.filter)?'No matching tasks':isOne?'You’re all caught up. Nothing else to do today.':'Nothing planned yet. Leave some room to breathe.';stack.append(empty);}};
+      let open=isOne|| (expandedDays.has(key)?expandedDays.get(key):offset===0||Boolean((query||tagUI?.filter)&&shown.length));
+      if(!isOne){
+        const arrow=document.createElement('span');arrow.className='day-chevron';arrow.setAttribute('aria-hidden','true');toggle.append(arrow);
+        const update=()=>{toggle.setAttribute('aria-expanded',String(open));stack.hidden=!open;card.classList.toggle('is-collapsed',!open);if(open)fill();};
+        toggle.setAttribute('aria-controls',stack.id);toggle.onclick=()=>{open=!open;expandedDays.set(key,open);update();};update();
+      }else fill();
+      header.append(toggle,add);card.append(header);if(planning)card.append(planning.indicator(key,all));card.append(stack);els.daysRoot.append(card);
     }
-    els.moreDaysButton.hidden = activeView === "today" || activeView === "one-task" || Boolean(query) || daysVisible >= 365;
-    if (daysVisible < 365) {
-      const additionalDays = Math.min(30, 365 - daysVisible);
-      els.moreDaysButton.textContent = "Show another " + additionalDays + " days ↓";
-    }
-    els.jumpTodayButton.hidden = activeView === "today" || activeView === "one-task";
+    els.moreDaysButton.hidden=isOne||Boolean(query)||daysVisible>=365;
+    if(daysVisible<365)els.moreDaysButton.textContent='Show another '+Math.min(30,365-daysVisible)+' days ↓';
+    els.jumpTodayButton.hidden=isOne;
   }
 
   function render() {
-    const isSnapshot = activeView === "snapshot";
+    const isSnapshot = activeView === "snapshot", isToday = activeView === "today";
+    lastRenderedDate = todayKey();
+    $("todayOverview").hidden = !isToday;
+    $("todayView").hidden = !isToday; els.daysRoot.hidden = isToday;
+    document.querySelector(".timeline-heading").hidden = isToday;
+    $("timelinePanel").setAttribute("aria-label",isToday?"Today’s workspace":"Tasks by day");
+    $("timelinePanel").removeAttribute("aria-labelledby");
+    if(!isToday)$("pageDescription").removeAttribute("aria-live");
     if (!isSnapshot) rollover();
     $("workspace").hidden = isSnapshot;
     $("snapshotView").hidden = !isSnapshot;
     document.querySelector(".tag-filter-row").hidden = isSnapshot;
     els.sidebarInboxCount.textContent = String(tasks.filter(t => !t.date && !t.completed).length);
     if (isSnapshot) snapshot?.render();
+    else if(isToday) { renderToday(); els.moreDaysButton.hidden=true; }
     else { renderInbox(); renderDays(); }
     const showDemo = tasks.some((task) => task.demo);
-    els.demoBanner.hidden = !showDemo || isSnapshot;
+    els.demoBanner.hidden = !showDemo || isSnapshot || isToday;
     document.querySelectorAll("[data-nav]").forEach((button) => {
       const active = button.dataset.nav === activeView;
       button.classList.toggle("active", active);
@@ -451,6 +453,8 @@
     if (els.taskDialog.open) updateSchedulingGuidance();
   }
 
+  const scrollBehavior = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+
   function setView(view) {
     activeView = ["planner", "today", "one-task", "inbox", "snapshot"].includes(view) ? view : "planner";
     if (activeView === "one-task") {
@@ -461,7 +465,7 @@
       snapshot: ["Snapshot", "See the shape of things", "A quiet look at what’s waiting, planned and complete.", "A LITTLE PERSPECTIVE"],
       planner: ["Planner", "Make room for today", "Everything on your mind, with space to focus on what matters now.", "YOUR SPACE, YOUR PACE"],
       inbox: ["Inbox", "Clear your head", "Capture the little and the big things. Decide when to do them later.", "ROOM FOR EVERY THOUGHT"],
-      today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "ONE DAY AT A TIME"],
+      today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "TODAY · DO"],
       "one-task": ["One task", "Just one thing at a time", "Your next unfinished task. Complete it and the next one appears.", "A QUIETER WAY TO FOCUS"]
     };
     const [crumb, heading, description, eyebrow] = labels[activeView];
@@ -475,7 +479,7 @@
     $("currentDateLabel").textContent = eyebrow;
     $("timelineTitle").textContent = activeView === "today" ? "Your day" : activeView === "one-task" ? "Your next task" : "Your days";
     render();
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: scrollBehavior() });
   }
 
   function dateChoiceFor(value) {
@@ -516,8 +520,23 @@
     els.deleteTaskButton.hidden = !task;
     els.taskEditorFocusRow.hidden = !task || task.completed;
     $("saveTaskButton").textContent = task ? "Save changes" : "Add task";
+    updateOrderControls();
     els.taskDialog.showModal();
     els.taskTitle.focus();
+  }
+
+  function updateOrderControls() {
+    const task=tasks.find(t=>t.id===editingId),list=task?.date?SimpleDoDaily.group(tasks,task):[];
+    const index=list.findIndex(t=>t.id===editingId);
+    $('taskOrderControls').hidden=list.length<2;
+    $('taskEarlier').disabled=index<=0;$('taskLater').disabled=index<0||index>=list.length-1;
+  }
+  function shiftTask(direction) {
+    const current=tasks.find(t=>t.id===editingId);
+    if(!SimpleDoData.same(current,editingSnapshot)){notify('This task changed. Reopen it before changing its order.');return;}
+    const next=SimpleDoDaily.shift(tasks,editingId,direction);if(next===tasks)return;
+    tasks=next;if(!persist()){render();return;}
+    editingSnapshot=JSON.parse(JSON.stringify(tasks.find(t=>t.id===editingId)));render();updateOrderControls();notify('Task order updated.');
   }
 
   function closeTask() {
@@ -556,6 +575,7 @@
     if (task) {
       task.title = title;
       task.notes = els.taskNotes.value.trim();
+      if(task.date!==date)delete task.dayOrder;
       task.date = date;
       task.main = els.taskMain.checked;
       task.rolled = false;
@@ -609,6 +629,7 @@
       });
     }
     task.date = targetDate;
+    delete task.dayOrder;
     task.rolled = false;
     task.demo = false;
     persist();
@@ -635,7 +656,12 @@
       event.preventDefault();
       const id = draggedId || event.dataTransfer.getData("text/plain");
       const date = zone.dataset.date;
-      if (id && date) moveTask(id, date);
+      const target=event.target.closest('[data-task-id]');
+      const source=tasks.find(t=>t.id===id);
+      if(source?.date===date&&target&&target.dataset.taskId!==id) {
+        const next=SimpleDoDaily.reorder(tasks,id,target.dataset.taskId);
+        if(next!==tasks){tasks=next;persist();render();notify('Task order updated.');}
+      } else if(id&&date)moveTask(id,date);
       draggedId = null;
       document.querySelectorAll(".is-over").forEach((el) => el.classList.remove("is-over"));
     });
@@ -1016,6 +1042,7 @@
   }
 
   function tickFocus() {
+    if (lastRenderedDate !== todayKey()) render();
     if (!focusSession) return;
     if (focusSession.state === "running" && focusSecondsLeft() === 0) {
       finishFocusSession();
@@ -1026,6 +1053,8 @@
   }
 
   function wireEvents() {
+    $('todayAdd').onclick=()=>openTask(null,todayKey());
+    $('taskEarlier').onclick=()=>shiftTask(-1);$('taskLater').onclick=()=>shiftTask(1);
     $("newTaskButton").addEventListener("click", () => openTask());
     els.importTasksButton.addEventListener("click", () => els.importTasksFile.click());
     els.importTasksFile.addEventListener("change", importTasksFromFile);
@@ -1092,7 +1121,7 @@
     els.jumpTodayButton.addEventListener("click", () => {
       if (activeView !== "planner") setView("planner");
       requestAnimationFrame(() =>
-        $("day-" + todayKey())?.scrollIntoView({ behavior: "smooth", block: "start" })
+        $("day-" + todayKey())?.scrollIntoView({ behavior: scrollBehavior(), block: "start" })
       );
     });
     $("removeDemoButton").addEventListener("click", () => {
