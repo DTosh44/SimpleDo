@@ -275,6 +275,8 @@
   }
 
   function renderInbox() {
+    // Preserve the independent Inbox scroll position when tasks update.
+    const previousScrollTop = els.inboxTasks.scrollTop;
     const inbox = sortTasks(matching(tasks.filter((t) => !t.date)));
     const outstandingCount = tasks.filter((t) => !t.date && !t.completed).length;
     els.inboxCount.textContent = String(outstandingCount);
@@ -299,6 +301,10 @@
       description.textContent = "Add a thought whenever it pops into your head.";
       empty.append(illustration, heading, description);
       els.inboxTasks.append(empty);
+    }
+    if (els.inboxTasks.clientHeight > 0) {
+      const maxScroll = Math.max(0, els.inboxTasks.scrollHeight - els.inboxTasks.clientHeight);
+      els.inboxTasks.scrollTop = Math.min(previousScrollTop, maxScroll);
     }
   }
 
