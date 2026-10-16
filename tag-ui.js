@@ -7,11 +7,14 @@
    this.fillColors();this.refresh();
    $('tagFilter').onchange=()=>{this.filter=$('tagFilter').value;this.hooks.changed();};
    $('customTagChoice').onchange=()=>this.editChoice();
+   $('taskTag').onchange=()=>this.updateTaskSelection();
    $('tagForm').onsubmit=event=>{
     event.preventDefault();
     try {
+     const creating=!$('customTagChoice').value;
      const tag=catalog.edit($('customTagChoice').value,{name:$('tagName').value,color:$('tagColor').value,context:$('tagContext').value});
      this.refresh();$('customTagChoice').value=tag.id;this.editChoice();this.saved('Tag saved.');
+     if(creating)this.hooks.created?.(tag);
     }catch(error){$('tagError').textContent=error.message;}
    };
    $('deleteCustomTag').onclick=()=>{
@@ -20,8 +23,29 @@
    };
   }
   fillColors() {
-   for(const name of Object.keys(T.PALETTE)){const option=document.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);$('tagColor').append(option);}
-   $('tagColor').onchange=()=>$('tagColorDot').style.backgroundColor=T.PALETTE[$('tagColor').value];
+   const swatches=$('tagPaletteSwatches');
+   for(const [name,color] of Object.entries(T.PALETTE)){
+    const option=document.createElement('option');option.value=name;option.textContent=name[0].toUpperCase()+name.slice(1);$('tagColor').append(option);
+    const swatch=document.createElement('button');
+    swatch.type='button';swatch.className='tag-colour-swatch';swatch.dataset.color=name;
+    swatch.style.backgroundColor=color;swatch.setAttribute('aria-label',option.textContent+' tag colour');
+    swatch.setAttribute('aria-pressed','false');swatch.title=option.textContent;
+    swatch.onclick=()=>{$('tagColor').value=name;this.updateColourSelection();};
+    swatches.append(swatch);
+   }
+   $('tagColor').onchange=()=>this.updateColourSelection();
+   this.updateColourSelection();
+  }
+  updateColourSelection() {
+   const selected=$('tagColor').value;
+   $('tagColorDot').style.backgroundColor=T.PALETTE[selected]||T.PALETTE.purple;
+   for(const button of $('tagPaletteSwatches').querySelectorAll('button')){
+    button.setAttribute('aria-pressed',String(button.dataset.color===selected));
+   }
+  }
+  updateTaskSelection() {
+   const tag=this.catalog.resolve($('taskTag').value),dot=$('taskTagDot');
+   dot.hidden=!tag;dot.style.backgroundColor=tag?T.PALETTE[tag.color]||T.PALETTE.grey:'';
   }
   saved(message){$('tagError').textContent=message;this.hooks.saved();this.hooks.changed();}
   options(select,tags,first) {
@@ -34,7 +58,7 @@
    this.options($('tagFilter'),[...tags,...unknown],'All tags');
    if(![...$('tagFilter').options].some(o=>o.value===this.filter))this.filter='';$('tagFilter').value=this.filter;
    this.options($('taskTag'),[...tags,...unknown],'No tag');
-   this.keepMissingChoice(current);$('taskTag').value=current;
+   this.keepMissingChoice(current);$('taskTag').value=current;this.updateTaskSelection();
    this.options($('customTagChoice'),tags.filter(t=>T.validId(t.id)),'Create a tag');
    $('customTagChoice').value=[...$('customTagChoice').options].some(o=>o.value===editing)?editing:'';if(!document.activeElement?.closest('#tagForm'))this.editChoice();
   }
@@ -42,11 +66,11 @@
    if(!id||[...$('taskTag').options].some(o=>o.value===id))return;
    const option=document.createElement('option');option.value=id;option.textContent=this.catalog.resolve(id)?.name||'Removed tag (choose No tag to clear)';$('taskTag').append(option);
   }
-  open(task) {this.keepMissingChoice(task?.tagId);$('taskTag').value=task?.tagId||'';}
+  open(task) {this.keepMissingChoice(task?.tagId);$('taskTag').value=task?.tagId||'';this.updateTaskSelection();}
   editChoice() {
    const tag=this.catalog.resolve($('customTagChoice').value);
    $('tagName').value=tag?.name||'';$('tagColor').value=tag?.color||'purple';$('tagContext').value=tag?.context||'outside';
-   $('deleteCustomTag').hidden=!tag;$('tagColorDot').style.backgroundColor=T.PALETTE[$('tagColor').value];
+   $('deleteCustomTag').hidden=!tag;this.updateColourSelection();
   }
   matches(task){return !this.filter||(task.tagId===this.filter&&this.catalog.resolve(task.tagId)!==null);}
   context(id){return this.catalog.context({tagId:id});}

@@ -20,9 +20,17 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 
 Tasks are saved on this device first. After one successful online load over HTTPS (or localhost), a service worker caches the app shell for offline reopening. Local tasks, backups, restoring and focus timers work offline. Running timers never sync between devices. Browser storage is not permanent archival storage: keep downloaded backups somewhere safe, especially before clearing browser data or switching devices.
 
+## Appearance and custom tags
+
+SimpleDo keeps its pure-white canvas, black controls and minimal type, with small, consistent touches of its existing palette throughout: **blue for Planner, orange for Inbox/scan, pink for Today/focus, purple for One Task/voice, and mustard for Snapshot**. Tag colours remain user-defined, and Snapshot bars retain text labels. The Pomodoro bar stays solid pink.
+
+Inbox's header now lines up with **Your days**; the Inbox no longer has an outer card, and tasks continue scrolling independently in their own column.
+
+**Work** and **Home** are built in. To create a custom tag while editing a task, choose **+ New tag** next to the tag selector, enter a name, choose from the existing blue/orange/pink/purple/mustard/grey colour swatches and save. The unfinished task form is retained and your new tag is selected when you return. You can also create, rename, recolour and remove custom tags under **Settings → Tags**. One optional tag per task remains the rule; existing task data, backups and sync use the same tag system.
+
 ## Planner · Today · One task
 
-**Planner** is the organising view: today opens expanded on a white card with a restrained pink edge; future days start compact, with their date, task count, completion count and existing workload estimate. Use the day heading to expand/collapse it with a click, Enter or Space. Add buttons and drag destinations remain available while collapsed. The 30-day scroll and extensions to 365 days are unchanged. Open/closed choices stay in memory during the session; a reload restores the defaults. Search and tag filters initially expand days to reveal matching tasks, while retaining explicitly chosen disclosure states.
+**Planner** is the organising view: today opens expanded on a white card with a restrained pink edge; **future days with scheduled tasks also open expanded by default**, while empty days stay compact. Every scheduled task is visible without opening its day first. Use the day heading to expand/collapse it with a click, Enter or Space. Add buttons and drag destinations remain available while collapsed. The 30-day scroll and extensions to 365 days are unchanged. Open/closed choices stay in memory during the session; a reload restores the defaults. Search and tag filters initially expand days to reveal matching tasks, while retaining explicitly chosen disclosure states.
 
 **Today** is a dedicated daily workspace, with a clear day/date heading, completed/remaining counts and a thin solid pink progress bar. The first unfinished Main Thing gets the prominent feature; otherwise the first unfinished task is honestly labelled **Up next**. Its estimate and tag remain visible, with **Start focus** and **Done** actions. Other unfinished tasks use compact rows. **Completed (n)** starts collapsed, opens on request, and lets you uncheck tasks. An expanded section stays expanded through task updates; a new day or reload resets it. Empty and all-complete days have separate quiet states. Inbox remains available in its own view and beside Planner, with its independent scrolling preserved.
 
@@ -32,7 +40,7 @@ Today keeps the existing tag/search filters. Progress always describes **all tas
 
 Click a task title to edit or reschedule it. Drag tasks to Planner days (including collapsed days) or Inbox as before; dropping before another task on the same day reorders within its completion/Main Thing group. The editor's **Earlier / Later** controls provide a keyboard/touch alternative and save the order immediately, independently of other draft edits. Main Thing retains priority. Explicit ordering adds only an optional `dayOrder` value to ordinary task payloads; the existing local store, backups and Supabase revision sync carry it without a database migration. Older tasks retain their creation order until explicitly reordered, and changing a task's date clears its old day-specific rank. Opening views and expanding/collapsing sections do not rewrite tasks.
 
-Collapsed future-day task rows and completed Today rows are created only when opened. Planner groups tasks by date once per render. Keyboard controls, visible focus states, 44px daily action targets, responsive layouts and reduced-motion scroll behavior are included. The date refreshes across midnight, retaining the existing unfinished-task return-to-Inbox behavior.
+Manually collapsed future-day task rows and completed Today rows are created only when opened. Planner groups tasks by date once per render. Keyboard controls, visible focus states, 44px daily action targets, responsive layouts and reduced-motion scroll behavior are included. The date refreshes across midnight, retaining the existing unfinished-task return-to-Inbox behavior.
 
 ## Quick Capture — Type · Speak · Scan
 

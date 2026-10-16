@@ -132,6 +132,24 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     const tagBackup=JSON.parse(fs.readFileSync(await tagDownload.path(),'utf8'));assert.ok(tagBackup.tags.some(t=>t.id===customId&&t.name==='Outdoors'));assert.ok(tagBackup.tasks.some(t=>t.title==='Buy groceries'&&t.tagId==='home'));
     await capacityPage.locator('#deleteCustomTag').click();assert.equal(await capacityPage.locator('#tagName').inputValue(),'');assert.equal(await capacityPage.locator('#deleteCustomTag').isVisible(),false);await capacityPage.locator('#closeSettings').click();
     assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),0);
+    // Create a custom-colour tag directly from a task without losing draft fields.
+    await capacityPage.locator('#newTaskButton').click();
+    await capacityPage.locator('#taskTitle').fill('Keep unsaved task title');
+    await capacityPage.locator('#taskNotes').fill('Keep unsaved task notes');
+    await capacityPage.locator('#createTagFromTask').click();
+    assert.equal(await capacityPage.locator('#tagSettingsDetails').evaluate(el=>el.open),true);
+    assert.equal(await capacityPage.locator('#tagPaletteSwatches button').count(),6);
+    await capacityPage.locator('#tagName').fill('Weekend');
+    await capacityPage.getByRole('button',{name:'Mustard tag colour',exact:true}).click();
+    assert.equal(await capacityPage.locator('#tagColor').inputValue(),'mustard');
+    assert.equal(await capacityPage.locator('[data-color=mustard]').getAttribute('aria-pressed'),'true');
+    await capacityPage.locator('#tagForm button[type=submit]').click();
+    await capacityPage.locator('#taskDialog').waitFor({state:'visible'});
+    assert.equal(await capacityPage.locator('#taskTitle').inputValue(),'Keep unsaved task title');
+    assert.equal(await capacityPage.locator('#taskNotes').inputValue(),'Keep unsaved task notes');
+    assert.match(await capacityPage.locator('#taskTag').inputValue(),/^tag-/);
+    assert.equal(await capacityPage.locator('#taskTagDot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(224, 196, 77)');
+    await capacityPage.locator('#cancelTaskButton').click();
     assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h 30m other time/);
     const preserved=await capacityPage.evaluate(()=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records['full-day'].task);assert.equal(preserved.tagId,undefined);
     await capacityPage.evaluate(()=>navigator.serviceWorker.ready);await capacityPage.waitForFunction(()=>navigator.serviceWorker.controller);
