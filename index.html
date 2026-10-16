@@ -7,9 +7,9 @@
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=17">
+  <link rel="stylesheet" href="./styles.css?v=18">
   <script src="./tags.js?v=14" defer></script>
-  <script src="./tag-ui.js?v=13" defer></script>
+  <script src="./tag-ui.js?v=18" defer></script>
   <script src="./capacity.js?v=13" defer></script>
   <script src="./data.js?v=13" defer></script>
   <script src="./config.js?v=9" defer></script>
@@ -21,7 +21,7 @@
   <script src="./capture.js?v=15" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=17" defer></script>
+  <script src="./app.js?v=18" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -44,7 +44,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.14</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.15</span></div>
     </aside>
 
     <div class="content">
@@ -150,7 +150,8 @@
       <input type="text" id="taskTitle" class="field-input" maxlength="180" required placeholder="Give your task a name" autocomplete="off">
       <label for="taskNotes" class="field-label">Notes <span>(optional)</span></label>
       <textarea id="taskNotes" class="field-input field-textarea" rows="3" maxlength="2000" placeholder="Any extra details..."></textarea>
-      <label for="taskTag" class="field-label">Tag <span>(optional)</span></label><select id="taskTag" class="field-input"><option value="">No tag</option></select>
+      <label for="taskTag" class="field-label">Tag <span>(optional)</span></label>
+      <div class="task-tag-picker"><span id="taskTagDot" class="tag-dot task-tag-preview" aria-hidden="true" hidden></span><select id="taskTag" class="field-input"><option value="">No tag</option></select><button type="button" class="tag-create-shortcut" id="createTagFromTask">+ New tag</button></div>
       <label for="taskEstimate" class="field-label">Estimated time <span>(optional)</span></label>
       <select id="taskEstimate" class="field-input"><option value="">No estimate</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom duration…</option></select>
       <div id="estimateCustomWrap" hidden><label for="estimateCustomMinutes" class="field-label">Estimated minutes</label><input id="estimateCustomMinutes" type="number" class="field-input" min="1" max="10080" step="1" inputmode="numeric"></div>
@@ -234,10 +235,11 @@
         <div id="mergeAccount" hidden><p>Merge this browser’s tasks with this account? No tasks will be removed. Keep local to pause sync on this device. Switching accounts can copy these tasks to the new account.</p><button class="button button-dark" id="enableSync">Merge and enable sync</button><button class="button button-outline" id="keepLocal">Keep local</button></div>
         <p id="accountError" role="status"></p>
       </section>
-      <section class="settings-section"><details><summary>Tags</summary><p><span class="task-tag"><span class="tag-dot tag-work" aria-hidden="true"></span>Work</span> <span class="task-tag"><span class="tag-dot tag-home" aria-hidden="true"></span>Home</span> are always available. One optional tag per task.</p>
+      <section class="settings-section"><details id="tagSettingsDetails"><summary>Tags</summary><p><span class="task-tag"><span class="tag-dot tag-work" aria-hidden="true"></span>Work</span> <span class="task-tag"><span class="tag-dot tag-home" aria-hidden="true"></span>Home</span> are always available. One optional tag per task.</p>
       <form id="tagForm"><label class="field-label" for="customTagChoice">Custom tags</label><select id="customTagChoice" class="field-input"><option value="">Create a tag</option></select>
       <label class="field-label" for="tagName">Name</label><input id="tagName" class="field-input" maxlength="32" required autocomplete="off">
       <label class="field-label" for="tagColor">Colour</label><div class="tag-color-field"><span class="tag-dot" id="tagColorDot" aria-hidden="true"></span><select id="tagColor" class="field-input"></select></div>
+      <div id="tagPaletteSwatches" class="tag-colour-swatches" role="group" aria-label="Choose a custom tag colour"></div>
       <label class="field-label" for="tagContext">Capacity</label><select id="tagContext" class="field-input"><option value="outside">Separate from working hours</option><option value="work">Use working hours</option></select><p class="focus-hint">Home and separate-time tags do not use work capacity. Separate availability rules will come later. Removing a tag keeps its tasks and capacity classification.</p>
       <div class="backup-actions"><button type="submit" class="button button-outline">Save tag</button><button type="button" class="button button-outline" id="deleteCustomTag" hidden>Delete tag</button></div><p id="tagError" role="status"></p></form></details></section>
       <section class="settings-section"><details><summary>Working hours</summary><p>Used for estimates on this device. Times follow your chosen time zone.</p>
