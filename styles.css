@@ -230,3 +230,107 @@ button:disabled {opacity:.45;cursor:not-allowed}
   .search-box input {width:0}
   .topbar:has(.search-box:focus-within) .sync-status {display:none}
 }
+
+
+/*
+ * Keep the Inbox available beside the 30-day timeline.
+ * Only its task list scrolls; capture, import and help text remain visible.
+ */
+body[data-active-view="planner"] .inbox-panel,
+body[data-active-view="today"] .inbox-panel,
+body[data-active-view="inbox"] .inbox-panel {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 44px);
+  height: calc(100dvh - 44px);
+  max-height: 760px;
+  min-height: 0;
+}
+
+.inbox-panel > .section-top,
+.inbox-panel > .section-intro,
+.inbox-panel > .quick-add-form,
+.inbox-panel > .inbox-import-row,
+.inbox-panel > .inbox-helper {
+  flex: 0 0 auto;
+}
+
+.inbox-panel #inboxTasks {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  padding-right: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: #bdbdbd transparent;
+}
+
+.inbox-panel #inboxTasks > * {
+  flex-shrink: 0;
+}
+
+.inbox-panel #inboxTasks:focus-visible {
+  outline: 2px solid #333;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.inbox-panel #inboxTasks::-webkit-scrollbar {
+  width: 6px;
+}
+
+.inbox-panel #inboxTasks::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+  border-radius: 8px;
+}
+
+.inbox-panel #inboxTasks::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inbox-panel .inbox-helper {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+/* Standalone Inbox view also has its own comfortable, scrollable task list. */
+body[data-active-view="inbox"] .inbox-panel {
+  height: min(760px, calc(100dvh - 225px));
+  min-height: 350px;
+  max-height: none;
+}
+
+@media (min-width: 651px) and (max-width: 860px) {
+  body[data-active-view="planner"] .inbox-panel,
+  body[data-active-view="today"] .inbox-panel {
+    height: calc(100dvh - 30px);
+  }
+}
+
+@media (max-width: 650px) {
+  /* On a narrow screen, don't bury the Inbox below thirty days. */
+  body[data-active-view="planner"] .inbox-panel {
+    order: -1;
+  }
+
+  body[data-active-view="planner"] .inbox-panel,
+  body[data-active-view="today"] .inbox-panel {
+    position: relative;
+    top: auto;
+    width: 100%;
+    height: min(500px, calc(100dvh - 260px));
+    min-height: 320px;
+    max-height: none;
+  }
+
+  body[data-active-view="inbox"] .inbox-panel {
+    height: min(680px, calc(100dvh - 220px));
+    min-height: 320px;
+  }
+
+  /* Allow swiping beyond the Inbox to continue through the page on touch. */
+  .inbox-panel #inboxTasks {
+    overscroll-behavior-y: auto;
+  }
+}
