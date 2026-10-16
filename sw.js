@@ -1,6 +1,6 @@
 /* Cache only the app shell, never auth requests, tokens, backups or cloud data. */
-const CACHE = 'simpledo-shell-v10';
-const FILES = ['./', './index.html', './styles.css?v=10', './data.js?v=9', './config.js?v=9',
+const CACHE = 'simpledo-shell-v11';
+const FILES = ['./', './index.html', './styles.css?v=11', './data.js?v=9', './config.js?v=9',
   './vendor/supabase.js', './cloud.js?v=9', './app.js?v=10', './favicon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
