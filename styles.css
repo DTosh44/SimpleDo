@@ -106,3 +106,31 @@ body[data-active-view="one-task"] .day-card { border-color:#d1d1d1; box-shadow:0
   .main-tag {background:#fff; color:#151515; border:1px solid #333;}
   .rolled-tag {background:#fff; color:#151515; border:1px solid #333;}
 }
+
+
+/* Discreet local file import in the Inbox */
+.inbox-import-row {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin:-5px 0 17px;
+}
+.inbox-import-hint {font-size:11px;color:#969696;line-height:1.4}
+.inbox-import-button {
+  background:#fff;
+  color:#252525;
+  border:1px solid #dedede;
+  padding:8px 10px;
+  border-radius:8px;
+  font-size:11px;
+  line-height:1;
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+}
+.inbox-import-button:hover {border-color:#919191;background:#f9f9f9}
+.inbox-import-button:focus-visible {outline:2px solid #222;outline-offset:2px}
+@media(max-width:650px){
+  .inbox-import-row {margin:0 0 16px}
+}
