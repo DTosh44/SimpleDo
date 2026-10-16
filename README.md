@@ -13,7 +13,7 @@ To test locally, open \`index.html\` in a browser after downloading the reposito
 ## What works
 
 - Quick-capture Inbox for unscheduled tasks
-- Seven-day rolling planner, with more days on demand
+- 30-day rolling planner, with additional 30-day periods on demand (up to 365 days)
 - Add, edit, delete, complete, and reschedule tasks
 - Drag a task onto a date or back to the Inbox (desktop)
 - Task editing/scheduling on mobile
