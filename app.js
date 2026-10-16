@@ -253,12 +253,16 @@
 
   function renderDays() {
     els.daysRoot.replaceChildren();
-    const visible = activeView === "today" ? 1 : daysVisible;
+    const visible = activeView === "today" || activeView === "one-task" ? 1 : daysVisible;
     for (let offset = 0; offset < visible; offset++) {
       const date = dateAtOffset(offset);
       const key = formatKey(date);
-      const dayTasks = sortTasks(matching(tasks.filter((t) => t.date === key)));
       const allForDay = tasks.filter((t) => t.date === key);
+      // Main Thing wins; otherwise the oldest unfinished task is next.
+      // Completing it automatically reveals the next available task.
+      const dayTasks = activeView === "one-task"
+        ? sortTasks(allForDay.filter((t) => !t.completed)).slice(0, 1)
+        : sortTasks(matching(allForDay));
       const finished = allForDay.filter((t) => t.completed).length;
 
       const card = document.createElement("section");
@@ -289,7 +293,10 @@
       }
       const summary = document.createElement("div");
       summary.className = "day-summary";
-      if (!allForDay.length) {
+      if (activeView === "one-task") {
+        const remaining = allForDay.filter((t) => !t.completed).length;
+        summary.textContent = remaining ? remaining + " " + (remaining === 1 ? "task" : "tasks") + " remaining today" : "All caught up for today";
+      } else if (!allForDay.length) {
         summary.textContent = "A little breathing room";
       } else if (finished === allForDay.length) {
         summary.textContent = "All done — well played";
@@ -312,7 +319,9 @@
       if (!dayTasks.length) {
         const empty = document.createElement("div");
         empty.className = "day-placeholder";
-        empty.textContent = query ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
+        empty.textContent = activeView === "one-task"
+          ? "You\u2019re all caught up. Nothing else to do today."
+          : query ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
         stack.append(empty);
       } else {
         dayTasks.forEach((t) => stack.append(makeTaskCard(t)));
@@ -320,12 +329,12 @@
       card.append(header, stack);
       els.daysRoot.append(card);
     }
-    els.moreDaysButton.hidden = activeView === "today" || Boolean(query) || daysVisible >= 365;
+    els.moreDaysButton.hidden = activeView === "today" || activeView === "one-task" || Boolean(query) || daysVisible >= 365;
     if (daysVisible < 365) {
       const additionalDays = Math.min(30, 365 - daysVisible);
       els.moreDaysButton.textContent = "Show another " + additionalDays + " days ↓";
     }
-    els.jumpTodayButton.hidden = activeView === "today";
+    els.jumpTodayButton.hidden = activeView === "today" || activeView === "one-task";
   }
 
   function render() {
@@ -344,11 +353,16 @@
   }
 
   function setView(view) {
-    activeView = ["planner", "today", "inbox"].includes(view) ? view : "planner";
+    activeView = ["planner", "today", "one-task", "inbox"].includes(view) ? view : "planner";
+    if (activeView === "one-task") {
+      query = "";
+      els.searchInput.value = "";
+    }
     const labels = {
       planner: ["Planner", "Make room for today", "Everything on your mind, with space to focus on what matters now.", "YOUR SPACE, YOUR PACE"],
       inbox: ["Inbox", "Clear your head", "Capture the little and the big things. Decide when to do them later.", "ROOM FOR EVERY THOUGHT"],
-      today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "ONE DAY AT A TIME"]
+      today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "ONE DAY AT A TIME"],
+      "one-task": ["One task", "Just one thing at a time", "Your next unfinished task. Complete it and the next one appears.", "A QUIETER WAY TO FOCUS"]
     };
     const [crumb, heading, description, eyebrow] = labels[activeView];
     $("breadcrumb").textContent = crumb;
@@ -359,7 +373,7 @@
     $("pageTitle").append(stop);
     $("pageDescription").textContent = description;
     $("currentDateLabel").textContent = eyebrow;
-    $("timelineTitle").textContent = activeView === "today" ? "Your day" : "Your days";
+    $("timelineTitle").textContent = activeView === "today" ? "Your day" : activeView === "one-task" ? "Your next task" : "Your days";
     render();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -538,6 +552,7 @@
       if (event.target === els.taskDialog) closeTask();
     });
     els.searchInput.addEventListener("input", (event) => {
+      if (activeView === "one-task" && event.target.value.trim()) setView("planner");
       query = event.target.value.trim().toLocaleLowerCase();
       render();
     });
