@@ -47,7 +47,6 @@
     demoBanner: $("demoBanner"),
     searchInput: $("searchInput"),
     moreDaysButton: $("moreDaysButton"),
-    jumpTodayButton: $("jumpTodayButton"),
   };
 
   const formatKey = (date) =>
@@ -75,7 +74,7 @@
   let daysVisible = 30;
   const expandedDays = new Map();
   let renderedToday = null;
-  let lastRenderedDate = null;
+  let lastObservedDay = todayKey();
   let query = "";
   let editingId = null;
   let editingSnapshot = null;
@@ -420,12 +419,10 @@
     }
     els.moreDaysButton.hidden=isOne||Boolean(query)||daysVisible>=365;
     if(daysVisible<365)els.moreDaysButton.textContent='Show another '+Math.min(30,365-daysVisible)+' days ↓';
-    els.jumpTodayButton.hidden=isOne;
   }
 
   function render() {
     const isSnapshot = activeView === "snapshot", isToday = activeView === "today";
-    lastRenderedDate = todayKey();
     $("todayOverview").hidden = !isToday;
     $("todayView").hidden = !isToday; els.daysRoot.hidden = isToday;
     document.querySelector(".timeline-heading").hidden = isToday;
@@ -1042,7 +1039,13 @@
   }
 
   function tickFocus() {
-    if (lastRenderedDate !== todayKey()) render();
+    // Use main's shared midnight refresh for the Planner, Today and focus timer.
+    const currentDay = todayKey();
+    if (currentDay !== lastObservedDay) {
+      lastObservedDay = currentDay;
+      rollover();
+      render();
+    }
     if (!focusSession) return;
     if (focusSession.state === "running" && focusSecondsLeft() === 0) {
       finishFocusSession();
@@ -1117,12 +1120,6 @@
       daysVisible = Math.min(daysVisible + 30, 365);
       planning?.calendar.range(daysVisible);
       render();
-    });
-    els.jumpTodayButton.addEventListener("click", () => {
-      if (activeView !== "planner") setView("planner");
-      requestAnimationFrame(() =>
-        $("day-" + todayKey())?.scrollIntoView({ behavior: scrollBehavior(), block: "start" })
-      );
     });
     $("removeDemoButton").addEventListener("click", () => {
       tasks = tasks.filter((task) => !task.demo);
