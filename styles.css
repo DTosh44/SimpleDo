@@ -609,3 +609,18 @@ body[data-active-view=one-task] .day-add {color:var(--purple);}
   .snapshot-counts>div>span::before {outline:1px solid #222;}
   .tag-colour-swatch[aria-pressed=true] {outline:3px solid #111;}
 }
+
+/* Plain view and dialog headings, without decorative taglines. */
+.sidebar .brand { margin-bottom:30px; }
+.welcome h1 { margin-top:0; }
+.inbox-panel .section-title-row h2, .timeline-heading h2 { margin-top:0; }
+.dialog-header h2, .focus-dialog-header h2 { margin-top:0; }
+
+/* Keep the existing small colour cues on the two aligned functional headings. */
+.timeline-heading h2::after, .inbox-panel .section-title-row h2::after {
+  content:"";display:inline-block;width:5px;height:5px;
+  border-radius:50%;margin-left:9px;vertical-align:3px;
+}
+.timeline-heading h2::after {background:var(--blue);}
+.inbox-panel .section-title-row h2::after {background:var(--orange);}
+@media(max-width:860px){ .sidebar .brand {margin-bottom:0;} }
