@@ -75,6 +75,7 @@
   let daysVisible = 30;
   let query = "";
   let editingId = null;
+  let editingSnapshot = null;
   let dialogOpener = null;
   let draggedId = null;
   let toastTimeout = null;
@@ -106,44 +107,44 @@
     }));
   }
 
+  const store = new SimpleDoData.Store(localStorage);
+  let storageReady = false;
+  let cloud = null;
+  let saveFailed = false;
   function load() {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        tasks = Array.isArray(parsed)
-          ? parsed
-              .filter((t) => t && typeof t.id === "string" && typeof t.title === "string")
-              .map((t) => ({
-                id: t.id,
-                title: t.title.slice(0, 180),
-                notes: typeof t.notes === "string" ? t.notes.slice(0, 2000) : "",
-                date: typeof t.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : null,
-                completed: Boolean(t.completed),
-                main: Boolean(t.main),
-                focusMinutes: Number.isInteger(t.focusMinutes) && t.focusMinutes >= 1 && t.focusMinutes <= 180 ? t.focusMinutes : null,
-                rolled: Boolean(t.rolled),
-                demo: Boolean(t.demo),
-                createdAt: t.createdAt || new Date().toISOString()
-              }))
-          : [];
-      } else {
-        tasks = localStorage.getItem(DEMO_KEY) === "true" ? [] : demoTasks();
-        persist();
-      }
+      tasks = store.load(localStorage.getItem(DEMO_KEY) === "true" ? [] : demoTasks());
+      storageReady = true;
+      rollover();
     } catch (error) {
-      console.warn("Could not read saved SimpleDo tasks", error);
-      tasks = demoTasks();
+      storageReady = false;
+      tasks = [];
+      $("workspace").inert = true;
+      $("newTaskButton").disabled = true;
+      $("exportBackup").disabled = true;
+      $("importBackup").disabled = true;
+      $("storageError").hidden = false;
+      $("storageErrorText").textContent = error.message;
+      notify("Storage could not be opened. Existing data has been preserved.");
     }
-    rollover();
   }
 
   function persist() {
+    if (!storageReady) {
+      notify("Storage is unavailable. Download recovery data from Settings first.");
+      return false;
+    }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      tasks = store.commit(tasks);
+      saveFailed = false;
+      if (cloud) cloud.schedule();
+      return true;
     } catch (error) {
-      console.warn("Could not save SimpleDo tasks", error);
-      notify("Browser storage is unavailable. Changes may not be saved.");
+      saveFailed = true;
+      if (cloud) { cloud.allowed = false; cloud.generation++; }
+      notify("Could not save. Export a backup now before closing this page.");
+      $("syncStatus").textContent = "Save failed";
+      return false;
     }
   }
 
@@ -208,8 +209,9 @@
     check.addEventListener("click", () => {
       task.completed = !task.completed;
       if (task.completed) clearFocusForTask(task.id);
-      persist();
+      const saved = persist();
       render();
+      if (!saved) return;
       notify(task.completed ? "Nicely done. Task completed." : "Task marked incomplete.");
     });
 
@@ -224,6 +226,11 @@
     body.append(title);
     const meta = document.createElement("span");
     meta.className = "task-meta";
+    if (task.conflictOf) {
+      const recovered = document.createElement("span");
+      recovered.className = "rolled-tag"; recovered.textContent = "Recovered edit";
+      meta.append(recovered);
+    }
     if (task.main) {
       const label = document.createElement("span");
       label.className = "main-tag";
@@ -441,6 +448,7 @@
     const task = taskId ? tasks.find((t) => t.id === taskId) : null;
     if (taskId && !task) return;
     editingId = task ? task.id : null;
+    editingSnapshot = task ? JSON.parse(JSON.stringify(task)) : null;
     dialogOpener = document.activeElement;
     $("dialogHeading").textContent = task ? "Edit task" : "New task";
     els.taskTitle.value = task ? task.title : "";
@@ -485,6 +493,10 @@
       return;
     }
     let task = editingId ? tasks.find((t) => t.id === editingId) : null;
+    if (editingSnapshot && !SimpleDoData.same(task, editingSnapshot)) {
+      task = { ...editingSnapshot, id: makeId(), conflictOf: editingId, recoveredAt: new Date().toISOString() };
+      tasks.push(task);
+    }
     if (task) {
       task.title = title;
       task.notes = els.taskNotes.value.trim();
@@ -505,7 +517,7 @@
         if (other.id !== task.id && other.date === date) other.main = false;
       });
     }
-    persist();
+    if (!persist()) { render(); return; }
     closeTask();
     render();
     notify(editingId ? "Task updated." : "Task added.");
@@ -513,9 +525,14 @@
 
   function removeTask() {
     if (!editingId) return;
+    const current = tasks.find(t => t.id === editingId);
+    if (!SimpleDoData.same(current, editingSnapshot)) {
+      notify("This task changed while the editor was open. Reopen it before deleting.");
+      closeTask(); return;
+    }
     clearFocusForTask(editingId);
     tasks = tasks.filter((t) => t.id !== editingId);
-    persist();
+    if (!persist()) { render(); return; }
     closeTask();
     render();
     notify("Task deleted.");
@@ -992,8 +1009,9 @@
         main: false, rolled: false, demo: false, createdAt: new Date().toISOString()
       });
       field.value = "";
-      persist();
+      const saved = persist();
       render();
+      if (!saved) return;
       field.focus();
       notify("Added to Inbox.");
     });
@@ -1023,20 +1041,21 @@
     $("removeDemoButton").addEventListener("click", () => {
       tasks = tasks.filter((task) => !task.demo);
       try { localStorage.setItem(DEMO_KEY, "true"); } catch (_) { /* unavailable */ }
-      persist();
+      const saved = persist();
       render();
+      if (!saved) return;
       notify("Sample tasks removed. Make it your own.");
     });
     document.addEventListener("keydown", (event) => {
       if (
-        event.key === "/" && !els.taskDialog.open &&
+        event.key === "/" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
         els.searchInput.focus();
       }
       if (
-        (event.key === "n" || event.key === "N") && !els.taskDialog.open &&
+        (event.key === "n" || event.key === "N") && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
@@ -1050,7 +1069,8 @@
       }
     });
     window.addEventListener("storage", (event) => {
-      if (event.key === STORAGE_KEY) {
+      if (event.key === SimpleDoData.KEY) {
+        if (saveFailed) return;
         load();
         if (focusSession && !tasks.some((t) => t.id === focusSession.taskId && !t.completed))
           clearFocusForTask(focusSession.taskId);
@@ -1064,10 +1084,69 @@
     bindDragDrop();
   }
 
+  function downloadJSON(data, name) {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  let backupToRestore = null;
+  $("settingsButton").onclick = () => $("settingsDialog").showModal();
+  $("closeSettings").onclick = () => $("settingsDialog").close();
+  $("exportBackup").onclick = () => {
+    // Include current in-memory edits even if browser storage has become full.
+    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks },
+      "SimpleDo-Backup-" + todayKey() + ".json");
+  };
+  $("recoveryDownload").onclick = () => downloadJSON({
+    tasks: localStorage.getItem(STORAGE_KEY), data: localStorage.getItem(SimpleDoData.KEY),
+    preUpgrade: localStorage.getItem("simpledo.preUpgrade.v1"), beforeRestore: localStorage.getItem("simpledo.beforeRestore.v1")
+  }, "SimpleDo-Recovery-" + todayKey() + ".json");
+  $("importBackup").onclick = () => $("backupFile").click();
+  $("backupFile").onchange = async event => {
+    const file = event.target.files[0]; event.target.value = "";
+    if (!file) return;
+    try {
+      if (!storageReady) throw new Error("Resolve the storage error before restoring a backup.");
+      if (file.size > 20_000_000) throw new Error("Please choose a backup smaller than 20 MB.");
+      backupToRestore = SimpleDoData.parseBackup(await file.text());
+      $("restoreCount").textContent = backupToRestore.length + " tasks in this backup.";
+      $("replaceConfirm").checked = false; $("replaceBackup").disabled = true;
+      $("restoreError").textContent = "";
+      $("settingsDialog").close(); $("restoreDialog").showModal();
+    } catch (error) { notify(error.message); }
+  };
+  $("replaceConfirm").onchange = event => $("replaceBackup").disabled = !event.target.checked;
+  $("cancelRestore").onclick = () => { backupToRestore = null; $("restoreDialog").close(); };
+  function restoreBackup(replace) {
+    if (!backupToRestore || (replace && !$("replaceConfirm").checked)) return;
+    try {
+      tasks = store.restore(backupToRestore, replace);
+      if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
+      localStorage.setItem(DEMO_KEY, "true");
+      backupToRestore = null; $("restoreDialog").close(); render();
+      cloud?.schedule(); notify("Backup restored. Existing task IDs were preserved.");
+    } catch (error) { $("restoreError").textContent = "Restore could not be saved: " + error.message; }
+  }
+  $("mergeBackup").onclick = () => restoreBackup(false);
+  $("replaceBackup").onclick = () => restoreBackup(true);
+
   load();
   loadFocusSession();
   wireEvents();
   setView("planner");
   tickFocus();
   window.setInterval(tickFocus, 1000);
+  if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
+    canSync: () => !saveFailed,
+    changed(next) {
+      if (saveFailed) return;
+      tasks = next;
+      if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
+      render(); updateFocusPanel();
+    }, notify
+  });
 })();
+
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => { /* Local task storage remains usable. */ });
+}

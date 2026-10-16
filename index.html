@@ -6,8 +6,12 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
-  <link rel="stylesheet" href="./styles.css?v=7">
-  <script src="./app.js?v=8" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=9">
+  <script src="./data.js?v=9" defer></script>
+  <script src="./config.js?v=9" defer></script>
+  <script src="./vendor/supabase.js" defer></script>
+  <script src="./cloud.js?v=9" defer></script>
+  <script src="./app.js?v=9" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -29,7 +33,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Browser-only preview <span class="version">v0.8</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.9</span></div>
     </aside>
 
     <div class="content">
@@ -37,13 +41,15 @@
         <div class="breadcrumbs"><span class="mobile-brand">simpledo<span class="brand-dot">.</span></span><span class="breadcrumb-section" id="breadcrumb">Planner</span></div>
         <div class="top-actions">
           <label class="search-box" for="searchInput"><span aria-hidden="true">⌕</span><input id="searchInput" type="search" placeholder="Search tasks" autocomplete="off" aria-label="Search tasks"><kbd>/</kbd></label>
-          <span class="preview-pill"><span class="status-dot"></span> Preview</span>
+          <span class="sync-status" id="syncStatus" role="status" aria-live="polite">Saved locally</span>
+          <button type="button" class="button button-outline settings-button" id="settingsButton" aria-label="Settings">⚙<span> Settings</span></button>
           <button type="button" class="global-focus-button" id="globalFocusButton" hidden aria-label="Return to focus timer"><span aria-hidden="true">◷</span> <span id="globalFocusTime">25:00</span></button>
           <button type="button" class="button button-dark new-task" id="newTaskButton"><span aria-hidden="true">＋</span> New task</button>
         </div>
       </header>
 
       <main class="main-content">
+        <div id="storageError" class="demo-banner" role="alert" hidden><strong>Storage needs attention.</strong><span id="storageErrorText"></span><span>Open Settings and download recovery data. Do not clear browser data.</span></div>
         <div class="welcome">
           <div class="eyebrow"><span class="eyebrow-line"></span><span id="currentDateLabel">YOUR SPACE, YOUR PACE</span></div>
           <h1 id="pageTitle">Make room for today<span class="full-stop">.</span></h1>
@@ -92,7 +98,7 @@
 
         </div>
       </main>
-      <footer class="page-footer">SimpleDo preview · Stored locally in this browser · No account or calendar connection yet</footer>
+      <footer class="page-footer">Plan it. Forget it. Do it. · Local first · Optional account sync</footer>
     </div>
   </div>
 
@@ -169,6 +175,21 @@
       </div>
     </div>
   </dialog>
+  <dialog class="task-dialog settings-dialog" id="settingsDialog" aria-labelledby="settingsHeading">
+    <div class="settings-inner">
+      <div class="dialog-header"><h2 id="settingsHeading">Settings</h2><button class="icon-button" id="closeSettings" aria-label="Close settings">×</button></div>
+      <section class="settings-section" aria-labelledby="accountHeading">
+        <h3 id="accountHeading">Account</h3>
+        <p id="accountMessage">Use SimpleDo locally. Cloud sync is optional.</p>
+        <form id="signInForm" hidden><label class="field-label" for="accountEmail">Email</label><input id="accountEmail" class="field-input" type="email" required autocomplete="email" placeholder="you@example.com"><button class="button button-dark" type="submit">Send sign-in link</button><p class="focus-hint">A secure link signs you in or creates your account. Open it on this device.</p></form>
+        <button class="button button-outline" id="signOut" hidden>Sign out</button>
+        <div id="mergeAccount" hidden><p>Merge this browser’s tasks with this account? No tasks will be removed. Keep local to pause sync on this device. Switching accounts can copy these tasks to the new account.</p><button class="button button-dark" id="enableSync">Merge and enable sync</button><button class="button button-outline" id="keepLocal">Keep local</button></div>
+        <p id="accountError" role="status"></p>
+      </section>
+      <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>
+    </div>
+  </dialog>
+  <dialog class="task-dialog settings-dialog" id="restoreDialog" aria-labelledby="restoreHeading"><div class="settings-inner"><h2 id="restoreHeading">Restore backup</h2><p id="restoreCount"></p><p>Merge adds missing IDs and keeps existing tasks and deletions. Importing the same file again won’t duplicate tasks.</p><button class="button button-dark" id="mergeBackup">Merge with existing tasks</button><hr><p>Replace removes your current tasks and restores this backup. If sync is enabled, those removals also sync to your account. A recovery copy is saved in this browser first.</p><label class="main-checkbox"><input type="checkbox" id="replaceConfirm"><span>I understand that Replace removes existing tasks.</span></label><div class="backup-actions"><button class="button button-danger" id="replaceBackup" disabled>Replace existing tasks</button><button class="button button-outline" id="cancelRestore">Cancel</button></div><p id="restoreError" role="alert"></p></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

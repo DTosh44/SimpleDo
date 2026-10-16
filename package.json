@@ -1,0 +1,15 @@
+{
+  "name": "simpledo",
+  "version": "0.9.0",
+  "private": true,
+  "description": "Local-first minimalist planner with optional Supabase sync",
+  "scripts": {
+    "test": "node --test tests/data.test.cjs tests/sync.test.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "test:database": "node tests/database.cjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "playwright": "1.62.1"
+  }
+}

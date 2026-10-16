@@ -1,0 +1,33 @@
+/* Uses an in-memory PostgreSQL engine: npm install --no-save @electric-sql/pglite */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const {PGlite} = require(process.env.PGLITE_PATH || '@electric-sql/pglite');
+(async()=>{
+ const db = new PGlite();
+ await db.exec(`create role anon; create role authenticated; create schema auth;
+ create table auth.users(id uuid primary key);
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
+ grant usage on schema auth to anon,authenticated;
+ grant execute on function auth.uid() to anon,authenticated;
+ insert into auth.users values ('00000000-0000-0000-0000-000000000001'),('00000000-0000-0000-0000-000000000002');`);
+ await db.exec(fs.readFileSync(require('node:path').join(__dirname,'../supabase/001_tasks.sql'),'utf8'));
+ await db.exec(`set role authenticated; set request.jwt.claim.sub='00000000-0000-0000-0000-000000000001'`);
+ const rpc = async (title,rev=0,deleted=false) => (await db.query(`select public.sync_task('task', $1::jsonb,$2,$3) as result`,[JSON.stringify({id:'task',title}),deleted,rev])).rows[0].result;
+ let r = await rpc('First'); assert.equal(r.revision,1);
+ r=await rpc('First'); assert.equal(r.revision,1); assert.equal(r.conflict,false);
+ r=await rpc('New',1); assert.equal(r.revision,2);
+ r=await rpc('Stale',1); assert.equal(r.conflict,true); assert.equal(r.payload.title,'New');
+ r=await rpc('New',2,true); assert.equal(r.deleted,true); assert.equal(r.revision,3);
+ r=await rpc('Offline stale',2); assert.equal(r.conflict,true); assert.equal(r.deleted,true);
+ await assert.rejects(db.query(`update public.simpledo_tasks set deleted=false`),/permission denied/);
+ await assert.rejects(db.query(`delete from public.simpledo_tasks`),/permission denied/);
+ await db.exec(`set request.jwt.claim.sub='00000000-0000-0000-0000-000000000002'`);
+ assert.equal((await db.query('select * from public.simpledo_tasks')).rows.length,0);
+ r=await rpc('Second account'); assert.equal(r.conflict,false); assert.equal(r.revision,1);
+ assert.equal((await db.query('select * from public.simpledo_tasks')).rows.length,1);
+ await db.exec(`set request.jwt.claim.sub=''`); await assert.rejects(rpc('No identity'),/Authentication required/);
+ await db.exec('reset role; set role anon');
+ await assert.rejects(db.query('select * from public.simpledo_tasks'),/permission denied/);
+ await assert.rejects(rpc('Anonymous'),/permission denied/);
+ await db.close(); console.log('PASS: actual PostgreSQL schema, RLS isolation, anonymous denial, write permissions, revisions, retries, conflicts and tombstones.');
+})().catch(e=>{console.error(e);process.exitCode=1;});

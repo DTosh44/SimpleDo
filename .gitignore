@@ -1,0 +1,10 @@
+node_modules/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+SimpleDo-Backup-*.json
+SimpleDo-Recovery-*.json
+*.local.js
+.DS_Store

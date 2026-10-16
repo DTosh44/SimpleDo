@@ -198,3 +198,35 @@ body[data-active-view="one-task"] .task-focus-button {font-size:12px;padding:11p
   .task-focus-button {padding:9px 6px;min-width:53px}
   body[data-active-view="one-task"] .task-focus-button {padding:9px 8px;min-width:70px}
 }
+
+/* Quiet settings, backup and account controls. */
+.sync-status {font-size:11px;color:#777;white-space:nowrap}
+.settings-button {font-size:13px;gap:5px}
+.settings-inner {padding:26px;line-height:1.6}
+.settings-dialog {width:min(480px,calc(100vw - 24px));max-height:90dvh;overflow:auto}
+.settings-dialog h2 {margin:0;font-size:25px;letter-spacing:-.6px}
+.settings-dialog h3 {font-size:14px;margin:0 0 8px}
+.settings-dialog p {font-size:13px;color:#707070}
+.settings-section {padding:20px 0;border-bottom:1px solid #eee}
+.settings-section:last-child {border:0;padding-bottom:0}
+.backup-actions {display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}
+.settings-dialog form .button {margin-top:12px}
+.settings-dialog hr {border:0;border-top:1px solid #eee;margin:24px 0}
+.recovery-button {background:none;border:0;color:#777;text-decoration:underline;font-size:11px;padding:18px 0 0}
+#accountError,#restoreError {color:#9b2952}
+button:disabled {opacity:.45;cursor:not-allowed}
+[hidden] {display:none!important}
+@media(max-width:650px) {
+  .settings-button {padding:8px;min-width:36px}
+  .settings-button span {display:none}
+  .sync-status {font-size:10px;max-width:65px;white-space:normal;text-align:right}
+  .settings-inner {padding:21px}
+  .topbar:has(.search-box:focus-within) .breadcrumbs {display:none}
+}
+@media(max-width:650px) {
+  .top-actions {min-width:0}
+  .search-box {flex:0 1 38px;min-width:38px}
+  .search-box:focus-within {flex-basis:130px;width:130px}
+  .search-box input {width:0}
+  .topbar:has(.search-box:focus-within) .sync-status {display:none}
+}
