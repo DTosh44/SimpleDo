@@ -3,6 +3,7 @@
 (() => {
   const STORAGE_KEY = "simpledo.tasks.v1";
   const DEMO_KEY = "simpledo.demoRemoved.v1";
+  const FOCUS_KEY = "simpledo.focusSession.v1";
   const $ = (id) => document.getElementById(id);
   const els = {
     inboxTasks: $("inboxTasks"),
@@ -12,6 +13,28 @@
     inboxCount: $("inboxCount"),
     sidebarInboxCount: $("sidebarInboxCount"),
     taskDialog: $("taskDialog"),
+    taskEditorFocusRow: $("taskEditorFocusRow"),
+    startTaskFromEditor: $("startTaskFromEditor"),
+    focusDialog: $("focusDialog"),
+    focusHeading: $("focusHeading"),
+    focusTaskLabel: $("focusTaskLabel"),
+    focusSetup: $("focusSetup"),
+    focusSessionView: $("focusSessionView"),
+    focusDurationSelect: $("focusDurationSelect"),
+    focusCustomWrap: $("focusCustomWrap"),
+    focusCustomMinutes: $("focusCustomMinutes"),
+    focusCountdown: $("focusCountdown"),
+    focusPhase: $("focusPhase"),
+    focusProgressTrack: $("focusProgressTrack"),
+    focusProgressFill: $("focusProgressFill"),
+    focusSessionHint: $("focusSessionHint"),
+    focusStopButton: $("focusStopButton"),
+    focusPauseButton: $("focusPauseButton"),
+    focusCompleteButton: $("focusCompleteButton"),
+    focusFinishActions: $("focusFinishActions"),
+    focusBreakButton: $("focusBreakButton"),
+    globalFocusButton: $("globalFocusButton"),
+    globalFocusTime: $("globalFocusTime"),
     taskForm: $("taskForm"),
     taskTitle: $("taskTitle"),
     taskNotes: $("taskNotes"),
@@ -54,6 +77,9 @@
   let dialogOpener = null;
   let draggedId = null;
   let toastTimeout = null;
+  let focusSession = null;
+  let focusTargetTaskId = null;
+  let focusOpener = null;
 
   function demoTasks() {
     const today = todayKey();
@@ -94,6 +120,7 @@
                 date: typeof t.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(t.date) ? t.date : null,
                 completed: Boolean(t.completed),
                 main: Boolean(t.main),
+                focusMinutes: Number.isInteger(t.focusMinutes) && t.focusMinutes >= 1 && t.focusMinutes <= 180 ? t.focusMinutes : null,
                 rolled: Boolean(t.rolled),
                 demo: Boolean(t.demo),
                 createdAt: t.createdAt || new Date().toISOString()
@@ -179,6 +206,7 @@
     check.setAttribute("aria-pressed", String(task.completed));
     check.addEventListener("click", () => {
       task.completed = !task.completed;
+      if (task.completed) clearFocusForTask(task.id);
       persist();
       render();
       notify(task.completed ? "Nicely done. Task completed." : "Task marked incomplete.");
@@ -221,7 +249,20 @@
     edit.setAttribute("aria-label", "Edit " + task.title);
     edit.addEventListener("click", () => openTask(task.id));
 
-    card.append(check, body, edit);
+    if (!task.completed) {
+      const focusButton = document.createElement("button");
+      focusButton.type = "button";
+      focusButton.className = "task-focus-button";
+      focusButton.dataset.focusTaskId = task.id;
+      focusButton.addEventListener("click", () => openFocus(task.id));
+      const current = focusSession && focusSession.taskId === task.id;
+      focusButton.textContent = current ? focusButtonText() : "▶ Start";
+      focusButton.classList.toggle("is-timing", Boolean(current));
+      focusButton.setAttribute("aria-label", current ? "Return to timer for " + task.title : "Start task: " + task.title);
+      card.append(check, body, focusButton, edit);
+    } else {
+      card.append(check, body, edit);
+    }
     return card;
   }
 
@@ -352,6 +393,7 @@
       else button.removeAttribute("aria-current");
     });
     document.body.dataset.activeView = activeView;
+    updateFocusIndicator();
   }
 
   function setView(view) {
@@ -409,6 +451,7 @@
     els.customDateInput.value = date || todayKey();
     updateDateSelector();
     els.deleteTaskButton.hidden = !task;
+    els.taskEditorFocusRow.hidden = !task || task.completed;
     $("saveTaskButton").textContent = task ? "Save changes" : "Add task";
     els.taskDialog.showModal();
     els.taskTitle.focus();
@@ -469,6 +512,7 @@
 
   function removeTask() {
     if (!editingId) return;
+    clearFocusForTask(editingId);
     tasks = tasks.filter((t) => t.id !== editingId);
     persist();
     closeTask();
@@ -628,10 +672,293 @@
     }
   }
 
+
+  // One active focus timer is saved using an end timestamp rather than an
+  // interval counter; a sleeping tab or page refresh won't reset the session.
+  function saveFocusSession() {
+    try {
+      if (focusSession) localStorage.setItem(FOCUS_KEY, JSON.stringify(focusSession));
+      else localStorage.removeItem(FOCUS_KEY);
+    } catch (error) {
+      console.warn("Couldn't save SimpleDo focus timer", error);
+      notify("Browser storage is unavailable; timer may reset on refresh.");
+    }
+  }
+
+  function focusSecondsLeft() {
+    if (!focusSession || focusSession.state === "finished") return 0;
+    if (focusSession.state === "paused") return focusSession.remainingSec;
+    return Math.max(0, Math.ceil((focusSession.endsAt - Date.now()) / 1000));
+  }
+
+  function loadFocusSession() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || "null");
+      const valid = saved && typeof saved.taskId === "string" &&
+        tasks.some((t) => t.id === saved.taskId && !t.completed) &&
+        ["focus", "break"].includes(saved.mode) &&
+        ["running", "paused", "finished"].includes(saved.state) &&
+        Number.isFinite(saved.durationSec) && saved.durationSec >= 60 && saved.durationSec <= 10800 &&
+        Number.isFinite(saved.remainingSec) && saved.remainingSec >= 0 &&
+        saved.remainingSec <= saved.durationSec &&
+        (saved.state !== "running" || Number.isFinite(saved.endsAt));
+      focusSession = valid ? saved : null;
+      if (!valid && saved) saveFocusSession();
+      if (focusSession && focusSession.state === "running" && focusSecondsLeft() === 0)
+        finishFocusSession(false);
+    } catch (error) {
+      console.warn("Couldn't restore SimpleDo focus timer", error);
+      focusSession = null;
+    }
+  }
+
+  function clearFocusForTask(taskId) {
+    if (focusSession && focusSession.taskId === taskId) {
+      focusSession = null;
+      saveFocusSession();
+      if (els.focusDialog.open) els.focusDialog.close();
+    }
+  }
+
+  function focusClockText(seconds) {
+    const safe = Math.max(0, seconds);
+    return String(Math.floor(safe / 60)).padStart(2, "0") + ":" +
+      String(safe % 60).padStart(2, "0");
+  }
+
+  function focusButtonText() {
+    if (!focusSession) return "▶ Start";
+    if (focusSession.state === "finished")
+      return focusSession.mode === "break" ? "Break over" : "Time's up";
+    if (focusSession.state === "paused") return "Ⅱ Paused";
+    return "◷ " + focusClockText(focusSecondsLeft());
+  }
+
+  function updateFocusIndicator() {
+    els.globalFocusButton.hidden = !focusSession;
+    if (!focusSession) return;
+    const label = focusButtonText();
+    els.globalFocusTime.textContent = label;
+    els.globalFocusButton.setAttribute("aria-label",
+      "Return to focus timer for " +
+      (tasks.find((t) => t.id === focusSession.taskId)?.title || "task"));
+    document.querySelectorAll("[data-focus-task-id]").forEach((button) => {
+      if (button.dataset.focusTaskId === focusSession.taskId) button.textContent = label;
+    });
+  }
+
+  function changeFocusDuration() {
+    const custom = els.focusDurationSelect.value === "custom";
+    els.focusCustomWrap.hidden = !custom;
+    els.focusCustomMinutes.required = custom;
+  }
+
+  function openFocus(taskId) {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || task.completed) {
+      notify("This task is already complete.");
+      return;
+    }
+    focusOpener = document.activeElement;
+    if (focusSession) {
+      if (focusSession.taskId !== taskId)
+        notify("End the current timer before starting a different task.");
+      focusTargetTaskId = focusSession.taskId;
+    } else {
+      focusTargetTaskId = task.id;
+      const chosen = task.focusMinutes || 25;
+      const preset = Array.from(els.focusDurationSelect.options)
+        .some((opt) => opt.value === String(chosen));
+      els.focusDurationSelect.value = preset ? String(chosen) : "custom";
+      els.focusCustomMinutes.value = String(chosen);
+      changeFocusDuration();
+    }
+    if (!els.focusDialog.open) els.focusDialog.showModal();
+    updateFocusPanel();
+    if (!focusSession) els.focusDurationSelect.focus();
+  }
+
+  function closeFocusDialog() {
+    if (els.focusDialog.open) els.focusDialog.close();
+  }
+
+  function startFocus() {
+    if (focusSession) return;
+    const task = tasks.find((t) => t.id === focusTargetTaskId && !t.completed);
+    if (!task) {
+      closeFocusDialog();
+      notify("That task is no longer available.");
+      return;
+    }
+    const minutes = Number(els.focusDurationSelect.value === "custom"
+      ? els.focusCustomMinutes.value : els.focusDurationSelect.value);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
+      notify("Enter a whole number of minutes between 1 and 180.");
+      els.focusCustomMinutes.focus();
+      return;
+    }
+    task.focusMinutes = minutes;
+    task.demo = false;
+    persist();
+    focusSession = {
+      taskId: task.id, mode: "focus", state: "running",
+      durationSec: minutes * 60, remainingSec: minutes * 60,
+      endsAt: Date.now() + minutes * 60000
+    };
+    saveFocusSession();
+    render();
+    updateFocusPanel();
+    notify("Focus time started.");
+  }
+
+  function pauseOrResumeFocus() {
+    if (!focusSession || focusSession.state === "finished") return;
+    if (focusSession.state === "running") {
+      focusSession.remainingSec = focusSecondsLeft();
+      focusSession.endsAt = null;
+      focusSession.state = "paused";
+    } else {
+      focusSession.endsAt = Date.now() + focusSession.remainingSec * 1000;
+      focusSession.state = "running";
+    }
+    saveFocusSession();
+    render();
+    updateFocusPanel();
+  }
+
+  function finishFocusSession(showMessage = true) {
+    if (!focusSession || focusSession.state === "finished") return;
+    focusSession.state = "finished";
+    focusSession.remainingSec = 0;
+    focusSession.endsAt = null;
+    saveFocusSession();
+    if (showMessage) notify(focusSession.mode === "break" ?
+      "Break over. Ready for the next task?" : "Focus time complete.");
+  }
+
+  function startFocusBreak() {
+    if (!focusSession || focusSession.state !== "finished" || focusSession.mode !== "focus") return;
+    focusSession.mode = "break";
+    focusSession.state = "running";
+    focusSession.durationSec = 300;
+    focusSession.remainingSec = 300;
+    focusSession.endsAt = Date.now() + 300000;
+    saveFocusSession();
+    render();
+    updateFocusPanel();
+  }
+
+  function stopFocus() {
+    focusSession = null;
+    focusTargetTaskId = null;
+    saveFocusSession();
+    render();
+    closeFocusDialog();
+    notify("Focus session ended.");
+  }
+
+  function restartFocus() {
+    if (!focusSession || focusSession.state !== "finished") return;
+    const taskId = focusSession.taskId;
+    focusSession = null;
+    saveFocusSession();
+    render();
+    closeFocusDialog();
+    openFocus(taskId);
+  }
+
+  function completeFocusedTask() {
+    const id = focusSession?.taskId || focusTargetTaskId;
+    const task = tasks.find((t) => t.id === id);
+    if (!task) return stopFocus();
+    clearFocusForTask(id);
+    focusTargetTaskId = null;
+    task.completed = true;
+    persist();
+    render();
+    notify("Task complete. On to the next thing.");
+  }
+
+  function updateFocusPanel() {
+    if (!els.focusDialog.open) return;
+    const task = tasks.find((t) => t.id === (focusSession?.taskId || focusTargetTaskId));
+    if (!task) {
+      closeFocusDialog();
+      return;
+    }
+    els.focusTaskLabel.textContent = task.title;
+    const active = Boolean(focusSession);
+    els.focusSetup.hidden = active;
+    els.focusSessionView.hidden = !active;
+    if (!active) {
+      els.focusHeading.textContent = "Start a focus session";
+      return;
+    }
+    const seconds = focusSecondsLeft();
+    const finished = focusSession.state === "finished";
+    const isBreak = focusSession.mode === "break";
+    els.focusHeading.textContent = finished
+      ? isBreak ? "Break finished" : "Session complete"
+      : isBreak ? "Take five" : "Time to focus";
+    els.focusCountdown.textContent = focusClockText(seconds);
+    els.focusPhase.textContent = finished
+      ? isBreak ? "Break complete" : "Focus complete"
+      : focusSession.state === "paused" ? "Paused"
+      : isBreak ? "5-minute break" : "Focus time";
+    const progress = Math.min(100, Math.max(0,
+      Math.round(100 * (1 - seconds / focusSession.durationSec))));
+    els.focusProgressFill.style.width = progress + "%";
+    els.focusProgressTrack.setAttribute("aria-valuenow", String(progress));
+    els.focusSessionHint.textContent = finished
+      ? isBreak ? "Ready for another session or to finish your task?"
+                : "Nice work. Take five, focus again, or mark your task complete."
+      : "You can close this window — the timer will carry on.";
+    els.focusPauseButton.hidden = finished;
+    els.focusPauseButton.textContent = focusSession.state === "paused" ? "▶ Resume" : "Ⅱ Pause";
+    els.focusStopButton.textContent = finished ? "Dismiss timer" : "End session";
+    els.focusFinishActions.hidden = !finished;
+    els.focusBreakButton.hidden = !finished || isBreak;
+  }
+
+  function tickFocus() {
+    if (!focusSession) return;
+    if (focusSession.state === "running" && focusSecondsLeft() === 0) {
+      finishFocusSession();
+      render();
+    }
+    updateFocusIndicator();
+    updateFocusPanel();
+  }
+
   function wireEvents() {
     $("newTaskButton").addEventListener("click", () => openTask());
     els.importTasksButton.addEventListener("click", () => els.importTasksFile.click());
     els.importTasksFile.addEventListener("change", importTasksFromFile);
+    els.globalFocusButton.addEventListener("click", () => {
+      if (focusSession) openFocus(focusSession.taskId);
+    });
+    els.startTaskFromEditor.addEventListener("click", () => {
+      if (!editingId) return;
+      const id = editingId;
+      closeTask();
+      openFocus(id);
+    });
+    $("closeFocusDialog").addEventListener("click", closeFocusDialog);
+    $("focusCancelButton").addEventListener("click", closeFocusDialog);
+    $("focusStartButton").addEventListener("click", startFocus);
+    els.focusDurationSelect.addEventListener("change", changeFocusDuration);
+    els.focusPauseButton.addEventListener("click", pauseOrResumeFocus);
+    els.focusStopButton.addEventListener("click", stopFocus);
+    els.focusCompleteButton.addEventListener("click", completeFocusedTask);
+    els.focusBreakButton.addEventListener("click", startFocusBreak);
+    $("focusAnotherButton").addEventListener("click", restartFocus);
+    els.focusDialog.addEventListener("close", () => {
+      if (focusOpener && document.contains(focusOpener) && typeof focusOpener.focus === "function")
+        focusOpener.focus();
+    });
+    els.focusDialog.addEventListener("click", (event) => {
+      if (event.target === els.focusDialog) closeFocusDialog();
+    });
     $("brandLink").addEventListener("click", (event) => {
       event.preventDefault();
       setView("planner");
@@ -701,18 +1028,30 @@
       }
     });
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) render();
+      if (!document.hidden) {
+        tickFocus();
+        render();
+      }
     });
     window.addEventListener("storage", (event) => {
       if (event.key === STORAGE_KEY) {
         load();
+        if (focusSession && !tasks.some((t) => t.id === focusSession.taskId && !t.completed))
+          clearFocusForTask(focusSession.taskId);
         render();
+      } else if (event.key === FOCUS_KEY) {
+        loadFocusSession();
+        render();
+        updateFocusPanel();
       }
     });
     bindDragDrop();
   }
 
   load();
+  loadFocusSession();
   wireEvents();
   setView("planner");
+  tickFocus();
+  window.setInterval(tickFocus, 1000);
 })();
