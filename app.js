@@ -47,7 +47,6 @@
     demoBanner: $("demoBanner"),
     searchInput: $("searchInput"),
     moreDaysButton: $("moreDaysButton"),
-    jumpTodayButton: $("jumpTodayButton"),
   };
 
   const formatKey = (date) =>
@@ -73,6 +72,7 @@
   let tasks = [];
   let activeView = "planner";
   let daysVisible = 30;
+  let lastObservedDay = todayKey();
   let query = "";
   let editingId = null;
   let editingSnapshot = null;
@@ -426,7 +426,6 @@
       const additionalDays = Math.min(30, 365 - daysVisible);
       els.moreDaysButton.textContent = "Show another " + additionalDays + " days ↓";
     }
-    els.jumpTodayButton.hidden = activeView === "today" || activeView === "one-task";
   }
 
   function render() {
@@ -1016,6 +1015,14 @@
   }
 
   function tickFocus() {
+    // Keep Today at the top and return unfinished past tasks to the Inbox
+    // when the date changes, even if this tab remains open overnight.
+    const currentDay = todayKey();
+    if (currentDay !== lastObservedDay) {
+      lastObservedDay = currentDay;
+      rollover();
+      render();
+    }
     if (!focusSession) return;
     if (focusSession.state === "running" && focusSecondsLeft() === 0) {
       finishFocusSession();
@@ -1088,12 +1095,6 @@
       daysVisible = Math.min(daysVisible + 30, 365);
       planning?.calendar.range(daysVisible);
       render();
-    });
-    els.jumpTodayButton.addEventListener("click", () => {
-      if (activeView !== "planner") setView("planner");
-      requestAnimationFrame(() =>
-        $("day-" + todayKey())?.scrollIntoView({ behavior: "smooth", block: "start" })
-      );
     });
     $("removeDemoButton").addEventListener("click", () => {
       tasks = tasks.filter((task) => !task.demo);
