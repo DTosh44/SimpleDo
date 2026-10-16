@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
-  <link rel="stylesheet" href="./styles.css?v=7">
-  <script src="./app.js?v=8" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=9">
+  <script src="./app.js?v=9" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -86,7 +86,7 @@
               <button type="button" class="inbox-import-button" id="importTasksButton" aria-label="Import tasks into your Inbox from a file">↓ Import tasks</button>
               <input id="importTasksFile" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
             </div>
-            <div id="inboxTasks" class="task-stack"></div>
+            <div id="inboxTasks" class="task-stack" tabindex="0" role="region" aria-label="Inbox tasks — scroll independently"></div>
             <p class="inbox-helper">Unfinished tasks from previous days find their way back here — no overdue pile.</p>
           </section>
 
