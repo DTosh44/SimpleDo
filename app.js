@@ -4,6 +4,7 @@
   const STORAGE_KEY = "simpledo.tasks.v1";
   const DEMO_KEY = "simpledo.demoRemoved.v1";
   const FOCUS_KEY = "simpledo.focusSession.v1";
+  const DEFAULT_TAB_TITLE = document.title;
   const $ = (id) => document.getElementById(id);
   const els = {
     inboxTasks: $("inboxTasks"),
@@ -736,7 +737,21 @@
 
   function updateFocusIndicator() {
     els.globalFocusButton.hidden = !focusSession;
-    if (!focusSession) return;
+    if (!focusSession) {
+      document.title = DEFAULT_TAB_TITLE;
+      return;
+    }
+
+    // Keep the remaining time visible while working in a different browser tab.
+    // Use the existing clock and timer tick; don't create a second countdown.
+    if (focusSession.state === "running") {
+      document.title = focusClockText(focusSecondsLeft()) + " · SimpleDo";
+    } else if (focusSession.state === "paused") {
+      document.title = "Paused " + focusClockText(focusSecondsLeft()) + " · SimpleDo";
+    } else {
+      document.title = (focusSession.mode === "break" ? "Break finished" : "Focus finished") + " · SimpleDo";
+    }
+
     const label = focusButtonText();
     els.globalFocusTime.textContent = focusSession.state === "running"
       ? focusClockText(focusSecondsLeft()) : label;
