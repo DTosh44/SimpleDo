@@ -738,7 +738,8 @@
     els.globalFocusButton.hidden = !focusSession;
     if (!focusSession) return;
     const label = focusButtonText();
-    els.globalFocusTime.textContent = label;
+    els.globalFocusTime.textContent = focusSession.state === "running"
+      ? focusClockText(focusSecondsLeft()) : label;
     els.globalFocusButton.setAttribute("aria-label",
       "Return to focus timer for " +
       (tasks.find((t) => t.id === focusSession.taskId)?.title || "task"));
