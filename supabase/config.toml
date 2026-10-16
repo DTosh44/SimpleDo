@@ -1,0 +1,4 @@
+[functions.calendars]
+# OAuth callback cannot carry a Supabase JWT. All POST actions explicitly verify
+# the user's JWT with Supabase Auth; callback consumes one-time hashed state.
+verify_jwt = false

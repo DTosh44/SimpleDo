@@ -110,6 +110,11 @@
   const store = new SimpleDoData.Store(localStorage);
   let storageReady = false;
   let cloud = null;
+  let planning = null;
+  let tagCatalog = null;
+  let tagUI = null;
+  let snapshot = null;
+  let suggestedDate = null;
   let saveFailed = false;
   function load() {
     try {
@@ -170,6 +175,7 @@
   }
 
   function matching(list) {
+    list = tagUI ? list.filter(t => tagUI.matches(t)) : list;
     if (!query) return list;
     return list.filter((task) => (task.title + " " + task.notes).toLocaleLowerCase().includes(query));
   }
@@ -226,6 +232,12 @@
     body.append(title);
     const meta = document.createElement("span");
     meta.className = "task-meta";
+    const tagBadge = tagUI?.badge(task);
+    if (tagBadge) meta.append(tagBadge);
+    if (task.estimateMinutes) {
+      const estimate = document.createElement("span"); estimate.className = "task-estimate";
+      estimate.textContent = "~" + SimpleDoCapacity.duration(task.estimateMinutes); estimate.title = "Estimated total task time"; meta.append(estimate);
+    }
     if (task.conflictOf) {
       const recovered = document.createElement("span");
       recovered.className = "rolled-tag"; recovered.textContent = "Recovered edit";
@@ -284,10 +296,10 @@
     els.inboxTasks.replaceChildren();
     if (inbox.length) {
       inbox.forEach((t) => els.inboxTasks.append(makeTaskCard(t)));
-    } else if (query) {
+    } else if (query || tagUI?.filter) {
       const empty = document.createElement("p");
       empty.className = "no-results";
-      empty.textContent = "No matching tasks in the Inbox.";
+      empty.textContent = tagUI?.filter ? "No Inbox tasks with this tag." : "No matching tasks in the Inbox.";
       els.inboxTasks.append(empty);
     } else {
       const empty = document.createElement("div");
@@ -318,7 +330,7 @@
       // Main Thing wins; otherwise the oldest unfinished task is next.
       // Completing it automatically reveals the next available task.
       const dayTasks = activeView === "one-task"
-        ? sortTasks(allForDay.filter((t) => !t.completed)).slice(0, 1)
+        ? sortTasks(matching(allForDay.filter((t) => !t.completed))).slice(0, 1)
         : sortTasks(matching(allForDay));
       const finished = allForDay.filter((t) => t.completed).length;
 
@@ -376,14 +388,18 @@
       if (!dayTasks.length) {
         const empty = document.createElement("div");
         empty.className = "day-placeholder";
-        empty.textContent = activeView === "one-task"
+        empty.textContent = activeView === "one-task" && tagUI?.filter && allForDay.some(t => !t.completed)
+          ? "No matching tasks for this tag today."
+          : activeView === "one-task"
           ? "You\u2019re all caught up. Nothing else to do today."
-          : query ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
+          : (query || tagUI?.filter) ? "No matching tasks" : "Nothing planned yet. Leave some room to breathe.";
         stack.append(empty);
       } else {
         dayTasks.forEach((t) => stack.append(makeTaskCard(t)));
       }
-      card.append(header, stack);
+      card.append(header);
+      if (planning) card.append(planning.indicator(key, tasks));
+      card.append(stack);
       els.daysRoot.append(card);
     }
     els.moreDaysButton.hidden = activeView === "today" || activeView === "one-task" || Boolean(query) || daysVisible >= 365;
@@ -395,11 +411,16 @@
   }
 
   function render() {
-    rollover();
-    renderInbox();
-    renderDays();
+    const isSnapshot = activeView === "snapshot";
+    if (!isSnapshot) rollover();
+    $("workspace").hidden = isSnapshot;
+    $("snapshotView").hidden = !isSnapshot;
+    document.querySelector(".tag-filter-row").hidden = isSnapshot;
+    els.sidebarInboxCount.textContent = String(tasks.filter(t => !t.date && !t.completed).length);
+    if (isSnapshot) snapshot?.render();
+    else { renderInbox(); renderDays(); }
     const showDemo = tasks.some((task) => task.demo);
-    els.demoBanner.hidden = !showDemo;
+    els.demoBanner.hidden = !showDemo || isSnapshot;
     document.querySelectorAll("[data-nav]").forEach((button) => {
       const active = button.dataset.nav === activeView;
       button.classList.toggle("active", active);
@@ -408,15 +429,17 @@
     });
     document.body.dataset.activeView = activeView;
     updateFocusIndicator();
+    if (els.taskDialog.open) updateSchedulingGuidance();
   }
 
   function setView(view) {
-    activeView = ["planner", "today", "one-task", "inbox"].includes(view) ? view : "planner";
+    activeView = ["planner", "today", "one-task", "inbox", "snapshot"].includes(view) ? view : "planner";
     if (activeView === "one-task") {
       query = "";
       els.searchInput.value = "";
     }
     const labels = {
+      snapshot: ["Snapshot", "See the shape of things", "A quiet look at what’s waiting, planned and complete.", "A LITTLE PERSPECTIVE"],
       planner: ["Planner", "Make room for today", "Everything on your mind, with space to focus on what matters now.", "YOUR SPACE, YOUR PACE"],
       inbox: ["Inbox", "Clear your head", "Capture the little and the big things. Decide when to do them later.", "ROOM FOR EVERY THOUGHT"],
       today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "ONE DAY AT A TIME"],
@@ -448,6 +471,7 @@
     els.customDateWrap.hidden = !custom;
     els.customDateInput.required = custom;
     if (custom && !els.customDateInput.value) els.customDateInput.value = todayKey();
+    updateSchedulingGuidance();
   }
 
   function openTask(taskId = null, defaultDate = null) {
@@ -460,6 +484,11 @@
     els.taskTitle.value = task ? task.title : "";
     els.taskNotes.value = task ? task.notes : "";
     els.taskMain.checked = task ? task.main : false;
+    tagUI?.open(task);
+    const estimate = task?.estimateMinutes || "";
+    $("taskEstimate").value = ["",15,30,60,120].includes(estimate) ? String(estimate) : "custom";
+    $("estimateCustomMinutes").value = estimate || "";
+    updateEstimate();
     const date = task ? task.date : defaultDate;
     els.taskDate.value = dateChoiceFor(date);
     els.customDateInput.min = todayKey();
@@ -493,6 +522,8 @@
       els.taskTitle.focus();
       return;
     }
+    const estimateMinutes = chosenEstimate();
+    if (estimateMinutes !== null && (!Number.isInteger(estimateMinutes) || estimateMinutes < 1 || estimateMinutes > 10080)) { notify("Enter an estimated duration from 1 to 10,080 minutes."); return; }
     const date = chosenDate();
     if (date && date < todayKey()) {
       notify("Choose today or a future day.");
@@ -518,15 +549,20 @@
       };
       tasks.push(task);
     }
+    task.estimateMinutes = estimateMinutes;
+    const tagId = $("taskTag").value || null;
+    if (tagId || task.tagId) { task.tagId = tagId; task.capacityContext = tagId ? tagUI.context(tagId) : "work"; }
     if (task.main && date) {
       tasks.forEach((other) => {
         if (other.id !== task.id && other.date === date) other.main = false;
       });
     }
+    const guidance = date && planning ? planning.guidance(date, estimateMinutes, tasks, task.id) : null;
     if (!persist()) { render(); return; }
     closeTask();
     render();
-    notify(editingId ? "Task updated." : "Task added.");
+    if (guidance?.current && (guidance.current.free < (estimateMinutes || 0) || guidance.current.free === 0)) notify(guidance.text);
+    else notify(editingId ? "Task updated." : "Task added.");
   }
 
   function removeTask() {
@@ -558,7 +594,8 @@
     task.demo = false;
     persist();
     render();
-    notify(destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
+    const guidance = targetDate && planning ? planning.guidance(targetDate, task.estimateMinutes, tasks, task.id) : null;
+    notify(guidance?.current && (guidance.current.free < (task.estimateMinutes || 0) || guidance.current.free === 0) ? guidance.text : destination === "inbox" ? "Moved back to Inbox." : "Task scheduled.");
   }
 
   function bindDragDrop() {
@@ -1019,7 +1056,7 @@
       render();
       if (!saved) return;
       field.focus();
-      notify("Added to Inbox.");
+      notify(tagUI?.filter ? "Added without a tag. Choose All tags to see it." : "Added to Inbox.");
     });
     els.taskDate.addEventListener("change", updateDateSelector);
     els.taskForm.addEventListener("submit", addOrUpdateTask);
@@ -1030,12 +1067,13 @@
       if (event.target === els.taskDialog) closeTask();
     });
     els.searchInput.addEventListener("input", (event) => {
-      if (activeView === "one-task" && event.target.value.trim()) setView("planner");
+      if (["one-task", "snapshot"].includes(activeView) && event.target.value.trim()) setView("planner");
       query = event.target.value.trim().toLocaleLowerCase();
       render();
     });
     els.moreDaysButton.addEventListener("click", () => {
       daysVisible = Math.min(daysVisible + 30, 365);
+      planning?.calendar.range(daysVisible);
       render();
     });
     els.jumpTodayButton.addEventListener("click", () => {
@@ -1054,14 +1092,14 @@
     });
     document.addEventListener("keydown", (event) => {
       if (
-        event.key === "/" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        event.key === "/" && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
         els.searchInput.focus();
       }
       if (
-        (event.key === "n" || event.key === "N") && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        (event.key === "n" || event.key === "N") && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
@@ -1078,6 +1116,8 @@
       if (event.key === SimpleDoData.KEY) {
         if (saveFailed) return;
         load();
+        planning?.reload();
+        tagUI?.refresh();
         if (focusSession && !tasks.some((t) => t.id === focusSession.taskId && !t.completed))
           clearFocusForTask(focusSession.taskId);
         render();
@@ -1100,7 +1140,7 @@
   $("closeSettings").onclick = () => $("settingsDialog").close();
   $("exportBackup").onclick = () => {
     // Include current in-memory edits even if browser storage has become full.
-    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks },
+    downloadJSON({ app: "SimpleDo", version: 1, exportedAt: new Date().toISOString(), tasks, tags: tagCatalog?.definitions(), planningSettings: planning?.settings },
       "SimpleDo-Backup-" + todayKey() + ".json");
   };
   $("recoveryDownload").onclick = () => downloadJSON({
@@ -1114,8 +1154,8 @@
     try {
       if (!storageReady) throw new Error("Resolve the storage error before restoring a backup.");
       if (file.size > 20_000_000) throw new Error("Please choose a backup smaller than 20 MB.");
-      backupToRestore = SimpleDoData.parseBackup(await file.text());
-      $("restoreCount").textContent = backupToRestore.length + " tasks in this backup.";
+      backupToRestore = SimpleDoData.parseBackupDocument(await file.text());
+      $("restoreCount").textContent = backupToRestore.tasks.length + " tasks in this backup.";
       $("replaceConfirm").checked = false; $("replaceBackup").disabled = true;
       $("restoreError").textContent = "";
       $("settingsDialog").close(); $("restoreDialog").showModal();
@@ -1126,7 +1166,9 @@
   function restoreBackup(replace) {
     if (!backupToRestore || (replace && !$("replaceConfirm").checked)) return;
     try {
-      tasks = store.restore(backupToRestore, replace);
+      tasks = store.restore(backupToRestore.tasks, replace, replace ? backupToRestore.planningSettings : undefined, backupToRestore.tags);
+      tagUI?.refresh();
+      planning?.reload();
       if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
       localStorage.setItem(DEMO_KEY, "true");
       backupToRestore = null; $("restoreDialog").close(); render();
@@ -1136,7 +1178,35 @@
   $("mergeBackup").onclick = () => restoreBackup(false);
   $("replaceBackup").onclick = () => restoreBackup(true);
 
+  function chosenEstimate() {
+    return $("taskEstimate").value === "" ? null : Number($("taskEstimate").value === "custom" ? $("estimateCustomMinutes").value : $("taskEstimate").value);
+  }
+  function updateEstimate() {
+    const custom = $("taskEstimate").value === "custom";
+    $("estimateCustomWrap").hidden = !custom; $("estimateCustomMinutes").required = custom;
+    updateSchedulingGuidance();
+  }
+  function updateSchedulingGuidance() {
+    if (!planning) return;
+    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId, tagUI?.context($("taskTag").value));
+    $("scheduleMessage").textContent = result.text;
+    suggestedDate = result.date; $("useSuggestedDay").hidden = !suggestedDate;
+  }
+  $("taskTag").onchange = updateSchedulingGuidance;
+  $("taskEstimate").onchange = updateEstimate;
+  $("estimateCustomMinutes").oninput = updateSchedulingGuidance;
+  els.customDateInput.addEventListener("input", updateSchedulingGuidance);
+  $("useSuggestedDay").onclick = () => {
+    if (!suggestedDate) return;
+    els.taskDate.value = "custom"; els.customDateInput.value = suggestedDate; updateDateSelector();
+  };
   load();
+  if (storageReady) {
+    tagCatalog = new SimpleDoTags.Catalog(store);
+    tagUI = new SimpleDoTagUI.Controller(tagCatalog, {tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule()});
+    planning = new SimpleDoPlanning.Controller(store, {changed: () => render(), tags:tagCatalog});
+  }
+  snapshot = new SimpleDoSnapshot.Controller({tasks:()=>tasks,today:todayKey,catalog:()=>tagCatalog||{resolve:()=>null},palette:()=>SimpleDoTags.PALETTE});
   loadFocusSession();
   wireEvents();
   setView("planner");
@@ -1144,9 +1214,13 @@
   window.setInterval(tickFocus, 1000);
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
+    tags: tagCatalog,
+    tagsChanged() { tagUI.refresh(); render(); },
+    accountChanged: (client, user) => planning?.account(client, user),
     changed(next) {
       if (saveFailed) return;
       tasks = next;
+      tagUI?.refresh();
       if (focusSession && !tasks.some(t => t.id === focusSession.taskId && !t.completed)) clearFocusForTask(focusSession.taskId);
       render(); updateFocusPanel();
     }, notify

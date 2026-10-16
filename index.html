@@ -7,12 +7,18 @@
   <meta name="description" content="SimpleDo — a calmer place for your tasks, one day at a time.">
   <title>SimpleDo — One thing at a time</title>
   <link rel="icon" type="image/svg+xml" href="./favicon.svg">
-  <link rel="stylesheet" href="./styles.css?v=11">
-  <script src="./data.js?v=9" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=14">
+  <script src="./tags.js?v=14" defer></script>
+  <script src="./tag-ui.js?v=13" defer></script>
+  <script src="./capacity.js?v=13" defer></script>
+  <script src="./data.js?v=13" defer></script>
   <script src="./config.js?v=9" defer></script>
   <script src="./vendor/supabase.js" defer></script>
-  <script src="./cloud.js?v=9" defer></script>
-  <script src="./app.js?v=10" defer></script>
+  <script src="./cloud.js?v=13" defer></script>
+  <script src="./calendar.js?v=13" defer></script>
+  <script src="./planning.js?v=13" defer></script>
+  <script src="./snapshot.js?v=14" defer></script>
+  <script src="./app.js?v=14" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -27,6 +33,7 @@
         <button class="nav-item" type="button" data-nav="inbox"><span class="nav-icon" aria-hidden="true">▱</span> Inbox <span class="nav-count" id="sidebarInboxCount">0</span></button>
         <button class="nav-item" type="button" data-nav="today"><span class="nav-icon" aria-hidden="true">◷</span> Today <span class="nav-arrow" aria-hidden="true">›</span></button>
         <button class="nav-item" type="button" data-nav="one-task"><span class="nav-icon" aria-hidden="true">◎</span> One task <span class="nav-arrow" aria-hidden="true">›</span></button>
+        <button class="nav-item" type="button" data-nav="snapshot"><span class="nav-icon" aria-hidden="true">▥</span> Snapshot <span class="nav-arrow" aria-hidden="true">›</span></button>
       </nav>
       <div class="sidebar-spacer"></div>
       <div class="sidebar-note">
@@ -34,7 +41,7 @@
         <strong>A quieter kind of productive.</strong>
         <p>Keep the big picture in your inbox. Give the right things a day.</p>
       </div>
-      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.9</span></div>
+      <div class="sidebar-footer"><span class="status-dot"></span> Plan it. Forget it. Do it. <span class="version">v0.12</span></div>
     </aside>
 
     <div class="content">
@@ -62,6 +69,7 @@
           <button type="button" id="removeDemoButton">Remove samples <span aria-hidden="true">×</span></button>
         </div>
 
+        <div class="tag-filter-row"><label for="tagFilter">Show</label><select id="tagFilter" aria-label="Filter tasks by tag"><option value="">All tags</option></select></div>
         <div class="workspace" id="workspace">
           <section class="timeline-panel" id="timelinePanel" aria-labelledby="timelineTitle">
             <div class="timeline-heading">
@@ -98,6 +106,15 @@
           </section>
 
         </div>
+        <section id="snapshotView" class="snapshot-view" aria-label="Task snapshot" hidden>
+          <div class="snapshot-top"><div id="snapshotRanges" class="snapshot-ranges" role="group" aria-label="Snapshot time range"><button type="button" data-snapshot-range="today" aria-pressed="true">Today</button><button type="button" data-snapshot-range="week" aria-pressed="false">This week</button><button type="button" data-snapshot-range="month" aria-pressed="false">This month</button><button type="button" data-snapshot-range="year" aria-pressed="false">This year</button></div><p id="snapshotPeriod"></p></div>
+          <div class="snapshot-counts"><div><strong id="snapshot-inbox">0</strong><span>Inbox <small>now</small></span></div><div><strong id="snapshot-scheduled">0</strong><span>Scheduled <small>unfinished</small></span></div><div><strong id="snapshot-completed">0</strong><span>Completed <small>in this snapshot</small></span></div><div><strong id="snapshot-returned">0</strong><span>Returned <small>part of Inbox</small></span></div></div>
+          <div class="snapshot-bar snapshot-status-bar" id="snapshotStatusBar" aria-hidden="true"></div>
+          <p class="snapshot-scope" id="snapshotScope"></p><p id="snapshotEmpty" class="snapshot-empty" hidden>A little breathing room. Nothing in this snapshot yet.</p>
+          <section class="snapshot-section" aria-labelledby="snapshotTagHeading"><h2 id="snapshotTagHeading">By tag</h2><div class="snapshot-bar" id="snapshotTagBar" aria-hidden="true"></div><ul class="snapshot-tags" id="snapshotTags"></ul></section>
+          <section class="snapshot-section" id="snapshotDensity" aria-labelledby="snapshotDensityLabel" hidden><h2 id="snapshotDensityLabel">By day</h2><ul class="snapshot-bins" id="snapshotBins"></ul><p class="snapshot-scope" id="snapshotDensityNote"></p></section>
+          <details class="snapshot-method"><summary>What’s included</summary><p>Current Inbox and other undated tasks appear in every range. Dated tasks use their scheduled day, including completed tasks. Weeks run Monday to Sunday; months and years use calendar boundaries.</p><p>Completed is a task’s current status, not a history of when it was completed. Returned counts unfinished Inbox tasks currently marked as returned, not historical returns. It is already included in Inbox. Removed tags appear under No tag.</p><p>This view includes all tasks, independently of Planner search and tag filters. Distribution shows task counts, including Work and Home, without assuming how many working hours they need.</p></details>
+        </section>
       </main>
       <footer class="page-footer">Plan it. Forget it. Do it. · Local first · Optional account sync</footer>
     </div>
@@ -110,6 +127,11 @@
       <input type="text" id="taskTitle" class="field-input" maxlength="180" required placeholder="Give your task a name" autocomplete="off">
       <label for="taskNotes" class="field-label">Notes <span>(optional)</span></label>
       <textarea id="taskNotes" class="field-input field-textarea" rows="3" maxlength="2000" placeholder="Any extra details..."></textarea>
+      <label for="taskTag" class="field-label">Tag <span>(optional)</span></label><select id="taskTag" class="field-input"><option value="">No tag</option></select>
+      <label for="taskEstimate" class="field-label">Estimated time <span>(optional)</span></label>
+      <select id="taskEstimate" class="field-input"><option value="">No estimate</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom duration…</option></select>
+      <div id="estimateCustomWrap" hidden><label for="estimateCustomMinutes" class="field-label">Estimated minutes</label><input id="estimateCustomMinutes" type="number" class="field-input" min="1" max="10080" step="1" inputmode="numeric"></div>
+      <p class="estimate-hint">Total task time, separate from your focus timer.</p>
       <label for="taskDate" class="field-label">When?</label>
       <select id="taskDate" class="field-input" aria-label="Task schedule">
         <option value="">Keep in Inbox</option>
@@ -121,6 +143,7 @@
         <label for="customDateInput" class="field-label">Choose a date</label>
         <input type="date" class="field-input" id="customDateInput">
       </div>
+      <div class="schedule-guidance" id="scheduleGuidance" aria-live="polite"><p id="scheduleMessage"></p><button type="button" class="inbox-import-button" id="useSuggestedDay" hidden>Use suggested day</button></div>
       <label class="main-checkbox" for="taskMain"><input id="taskMain" type="checkbox"><span><strong>Make this the Main Thing</strong><small>Give this task a little more attention on its day.</small></span></label>
       <div class="task-editor-focus" id="taskEditorFocusRow" hidden><button type="button" class="button button-outline" id="startTaskFromEditor"><span aria-hidden="true">▶</span> Start task with a focus timer</button></div>
       <div class="dialog-actions"><button type="button" class="button button-danger" id="deleteTaskButton" hidden>Delete task</button><span class="dialog-spacer"></span><button type="button" class="button button-outline" id="cancelTaskButton">Cancel</button><button class="button button-dark" type="submit" id="saveTaskButton">Save task</button></div>
@@ -187,10 +210,24 @@
         <div id="mergeAccount" hidden><p>Merge this browser’s tasks with this account? No tasks will be removed. Keep local to pause sync on this device. Switching accounts can copy these tasks to the new account.</p><button class="button button-dark" id="enableSync">Merge and enable sync</button><button class="button button-outline" id="keepLocal">Keep local</button></div>
         <p id="accountError" role="status"></p>
       </section>
+      <section class="settings-section"><details><summary>Tags</summary><p><span class="task-tag"><span class="tag-dot tag-work" aria-hidden="true"></span>Work</span> <span class="task-tag"><span class="tag-dot tag-home" aria-hidden="true"></span>Home</span> are always available. One optional tag per task.</p>
+      <form id="tagForm"><label class="field-label" for="customTagChoice">Custom tags</label><select id="customTagChoice" class="field-input"><option value="">Create a tag</option></select>
+      <label class="field-label" for="tagName">Name</label><input id="tagName" class="field-input" maxlength="32" required autocomplete="off">
+      <label class="field-label" for="tagColor">Colour</label><div class="tag-color-field"><span class="tag-dot" id="tagColorDot" aria-hidden="true"></span><select id="tagColor" class="field-input"></select></div>
+      <label class="field-label" for="tagContext">Capacity</label><select id="tagContext" class="field-input"><option value="outside">Separate from working hours</option><option value="work">Use working hours</option></select><p class="focus-hint">Home and separate-time tags do not use work capacity. Separate availability rules will come later. Removing a tag keeps its tasks and capacity classification.</p>
+      <div class="backup-actions"><button type="submit" class="button button-outline">Save tag</button><button type="button" class="button button-outline" id="deleteCustomTag" hidden>Delete tag</button></div><p id="tagError" role="status"></p></form></details></section>
+      <section class="settings-section"><details><summary>Working hours</summary><p>Used for estimates on this device. Times follow your chosen time zone.</p>
+      <form id="workingHoursForm"><label class="field-label" for="planningTimeZone">Time zone</label><input id="planningTimeZone" class="field-input" placeholder="Europe/London" required autocomplete="off">
+      <div class="working-headings" aria-hidden="true"><span>Day</span><span>Start</span><span>End</span><span>Break</span><span>End</span></div><div id="workingDays"></div>
+      <label class="field-label" for="planningDaysOff">Days off <span>(optional, YYYY-MM-DD, separated by commas)</span></label><input id="planningDaysOff" class="field-input" placeholder="2026-12-25, 2026-12-28"><p class="focus-hint">Leave both break times empty for no break. Completed task estimates still count toward the day.</p><button class="button button-outline" type="submit">Save working hours</button><p id="planningError" role="status"></p></form></details></section>
+      <section class="settings-section"><details><summary>Calendars <span class="optional-label">optional</span></summary><p id="calendarHint">Sign in to SimpleDo to connect a calendar. Manual working hours are always available.</p>
+      <div class="calendar-provider"><strong>Outlook / Microsoft 365</strong><span class="provider-status" id="provider-outlook">Not connected</span><div class="backup-actions"><button class="button button-outline" id="connect-outlook" disabled>Connect</button><button class="button button-outline" id="disconnect-outlook" hidden>Disconnect Outlook</button></div><div class="calendar-choices" id="choices-outlook" hidden></div><button class="button button-outline" id="save-outlook" hidden>Use selected Outlook calendars</button></div>
+      <div class="calendar-provider"><strong>Google Calendar</strong><span class="provider-status" id="provider-google">Not connected</span><div class="backup-actions"><button class="button button-outline" id="connect-google" disabled>Connect</button><button class="button button-outline" id="disconnect-google" hidden>Disconnect Google</button></div><div class="calendar-choices" id="choices-google" hidden></div><button class="button button-outline" id="save-google" hidden>Use selected Google calendars</button></div>
+      <button class="recovery-button" id="refreshCalendar" disabled>Refresh availability</button><p id="calendarMessage" role="status"></p></details></section>
       <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>
     </div>
   </dialog>
-  <dialog class="task-dialog settings-dialog" id="restoreDialog" aria-labelledby="restoreHeading"><div class="settings-inner"><h2 id="restoreHeading">Restore backup</h2><p id="restoreCount"></p><p>Merge adds missing IDs and keeps existing tasks and deletions. Importing the same file again won’t duplicate tasks.</p><button class="button button-dark" id="mergeBackup">Merge with existing tasks</button><hr><p>Replace removes your current tasks and restores this backup. If sync is enabled, those removals also sync to your account. A recovery copy is saved in this browser first.</p><label class="main-checkbox"><input type="checkbox" id="replaceConfirm"><span>I understand that Replace removes existing tasks.</span></label><div class="backup-actions"><button class="button button-danger" id="replaceBackup" disabled>Replace existing tasks</button><button class="button button-outline" id="cancelRestore">Cancel</button></div><p id="restoreError" role="alert"></p></div></dialog>
+  <dialog class="task-dialog settings-dialog" id="restoreDialog" aria-labelledby="restoreHeading"><div class="settings-inner"><h2 id="restoreHeading">Restore backup</h2><p id="restoreCount"></p><p>Merge adds missing IDs and keeps existing tasks, tags, deletions and working hours. Importing the same file again won’t duplicate tasks.</p><button class="button button-dark" id="mergeBackup">Merge with existing tasks</button><hr><p>Replace removes your current tasks and restores this backup, including working hours and custom tags when present. If sync is enabled, those removals also sync to your account. A recovery copy is saved in this browser first.</p><label class="main-checkbox"><input type="checkbox" id="replaceConfirm"><span>I understand that Replace removes existing tasks.</span></label><div class="backup-actions"><button class="button button-danger" id="replaceBackup" disabled>Replace existing tasks</button><button class="button button-outline" id="cancelRestore">Cancel</button></div><p id="restoreError" role="alert"></p></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

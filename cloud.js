@@ -56,6 +56,7 @@
       const user = session?.user || null;
       if (this.user?.id !== user?.id) this.generation++;
       this.user = user;
+      this.hooks.accountChanged?.(this.client, user);
       this.allowed = Boolean(user && this.store.state.owner === user.id);
       this.$('signInForm').hidden = Boolean(user);
       this.$('signOut').hidden = !user;
@@ -107,6 +108,11 @@
       const valid = () => this.hooks.canSync?.() !== false && generation === this.generation && this.allowed && this.user?.id === owner && this.store.read()?.owner === owner;
       try {
         this.status('Syncing');
+        let tagError = null;
+        if (this.hooks.tags) try {
+          await this.hooks.tags.sync(this.client, owner, valid, () => this.hooks.tagsChanged?.());
+        } catch (error) { tagError = error; }
+        if (!valid()) return;
         for (const [id, record] of this.store.pending()) {
           if (!valid()) return;
           const {data, error} = await this.client.rpc('sync_task', {
@@ -132,9 +138,9 @@
           after = data[data.length - 1].id;
         }
         if (valid()) {
-          this.$('accountError').textContent = '';
+          this.$('accountError').textContent = tagError ? 'Task sync is available; tag sync needs attention. Run the tags migration and check your connection.' : '';
           const pending = this.store.pending().length;
-          this.status(pending ? 'Syncing' : 'Saved');
+          this.status(pending ? 'Syncing' : tagError ? 'Tags need attention' : 'Saved');
           if (pending) this.schedule();
         }
       } catch (error) { if (valid()) this.error(error); }
