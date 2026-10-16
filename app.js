@@ -72,7 +72,7 @@
   let tasks = [];
   let activeView = "planner";
   let daysVisible = 30;
-  const expandedDays = new Map();
+  const expandedDays = new Map(); // Explicit collapse/expand choices for this session
   let renderedToday = null;
   let lastObservedDay = todayKey();
   let query = "";
@@ -115,6 +115,7 @@
   let planning = null;
   let tagCatalog = null;
   let tagUI = null;
+  let returnToTaskAfterTags = false;
   let snapshot = null;
   let capture = null;
   let suggestedDate = null;
@@ -409,7 +410,9 @@
       const add=document.createElement('button');add.type='button';add.className='day-add';add.textContent='+';add.setAttribute('aria-label','Add task for '+new Intl.DateTimeFormat('en-GB',{weekday:'long'}).format(date));add.onclick=()=>openTask(null,key);
       const stack=document.createElement('div');stack.className='day-tasks'+(!shown.length?' empty':'');stack.id='tasks-'+key;
       const fill=()=>{if(stack.childNodes.length)return;if(shown.length)stack.append(...shown.map(t=>makeTaskCard(t)));else{const empty=document.createElement('div');empty.className='day-placeholder';empty.textContent=(query||tagUI?.filter)?'No matching tasks':isOne?'You’re all caught up. Nothing else to do today.':'Nothing planned yet. Leave some room to breathe.';stack.append(empty);}};
-      let open=isOne|| (expandedDays.has(key)?expandedDays.get(key):offset===0||Boolean((query||tagUI?.filter)&&shown.length));
+      // Populated days start expanded, while empty days stay compact.
+      // An explicit user collapse/expand choice wins until the page is reloaded.
+      let open=isOne|| (expandedDays.has(key)?expandedDays.get(key):offset===0||shown.length>0);
       if(!isOne){
         const arrow=document.createElement('span');arrow.className='day-chevron';arrow.setAttribute('aria-hidden','true');toggle.append(arrow);
         const update=()=>{toggle.setAttribute('aria-expanded',String(open));stack.hidden=!open;card.classList.toggle('is-collapsed',!open);if(open)fill();};
@@ -1061,6 +1064,23 @@
     $("newTaskButton").addEventListener("click", () => openTask());
     els.importTasksButton.addEventListener("click", () => els.importTasksFile.click());
     els.importTasksFile.addEventListener("change", importTasksFromFile);
+    $("createTagFromTask").addEventListener("click", () => {
+      if (!tagUI || !storageReady) { notify("Tag editing is unavailable until storage is ready."); return; }
+      // Preserve every unsaved task field while managing a tag.
+      returnToTaskAfterTags = true;
+      els.taskDialog.close();
+      $("settingsDialog").showModal();
+      $("tagSettingsDetails").open = true;
+      $("customTagChoice").value = "";
+      tagUI.editChoice();
+      $("tagName").focus();
+    });
+    $("settingsDialog").addEventListener("close", () => {
+      if (!returnToTaskAfterTags) return;
+      returnToTaskAfterTags = false;
+      if (!els.taskDialog.open) els.taskDialog.showModal();
+      $("taskTag").focus();
+    });
     els.globalFocusButton.addEventListener("click", () => {
       if (focusSession) openFocus(focusSession.taskId);
     });
@@ -1242,7 +1262,16 @@
   load();
   if (storageReady) {
     tagCatalog = new SimpleDoTags.Catalog(store);
-    tagUI = new SimpleDoTagUI.Controller(tagCatalog, {tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule()});
+    tagUI = new SimpleDoTagUI.Controller(tagCatalog, {
+      tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule(),
+      created: tag => {
+        if (returnToTaskAfterTags) {
+          $("taskTag").value = tag.id;
+          tagUI.updateTaskSelection();
+          $("settingsDialog").close();
+        }
+      }
+    });
     planning = new SimpleDoPlanning.Controller(store, {changed: () => render(), tags:tagCatalog});
   }
   snapshot = new SimpleDoSnapshot.Controller({tasks:()=>tasks,today:todayKey,catalog:()=>tagCatalog||{resolve:()=>null},palette:()=>SimpleDoTags.PALETTE});
