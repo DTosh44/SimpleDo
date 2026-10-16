@@ -8,7 +8,7 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 
 ## Everyday use
 
-- Inbox quick capture and bulk `.json`, `.md` and `.txt` import
+- Inbox Type / Speak / Scan capture with editable review and optional batch tags; bulk `.json`, `.md` and `.txt` import
 - 30-day planner, extending to 365 days; desktop drag-and-drop scheduling
 - Today, One task, Snapshot, Main Thing, search, editing and completion
 - Unfinished past tasks return to Inbox
@@ -19,6 +19,14 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 - Discreet Settings with backup export/restore, account controls, working hours and calendars
 
 Tasks are saved on this device first. After one successful online load over HTTPS (or localhost), a service worker caches the app shell for offline reopening. Local tasks, backups, restoring and focus timers work offline. Running timers never sync between devices. Browser storage is not permanent archival storage: keep downloaded backups somewhere safe, especially before clearing browser data or switching devices.
+
+## Quick Capture — Type · Speak · Scan
+
+The Inbox field stays ready to type into. The microphone opens browser dictation with Stop, an editable transcript and confirmation; unsupported or denied browsers offer keyboard dictation. Scan accepts a camera/library image when configured, or pasted text from your phone’s text scanner immediately. Review/select/edit individual rows and optionally apply one existing tag to the whole capture. Captures create ordinary Inbox tasks; repeated unfinished names are skipped. Draft text stays in this tab until added or discarded, including after a network failure or reload.
+
+**Available now:** offline typing/paste, review, tags and native speech where the browser/device supports it. Chrome can require its online recognition service. Safari's documented support depends on Siri/settings; physical iPhone/PWA dictation is not verified. SimpleDo saves no audio.
+
+**Needs external setup and activation approval:** Google Vision handwriting/print recognition through the authenticated `capture-scan` Supabase Edge Function and migration `004_capture.sql`. It is disabled by default. Current Vision pricing includes 1,000 free units/month, but does **not** provide a guaranteed £0 cap. The server enforces account limits and a shared 800-reservation rolling 32-day ceiling before contacting Google. No chargeable service has been activated. [Setup, verified pricing sources, privacy, browser limits and manual launch checks](docs/quick-capture.md) explain the cost boundary and the immediate on-device copy/paste alternative.
 
 ## Snapshot
 
@@ -32,7 +40,7 @@ Tag breakdowns include Work, Home, used custom tags and No tag; removed tags cou
 
 ## Simple tags
 
-Each task can have **one optional tag**. Work uses a blue dot and Home an orange dot, always with a visible text label. Existing tasks remain untagged. Choose a tag in the task editor or leave **No tag**; quick capture stays unchanged. The **Show** filter applies to Inbox, Planner, Today and One task, together with search.
+Each task can have **one optional tag**. Work uses a blue dot and Home an orange dot, always with a visible text label. Existing tasks remain untagged. Choose a tag in the task editor or leave **No tag**; the type-and-add field remains immediate. Voice and list review also offer an optional tag. The **Show** filter applies to Inbox, Planner, Today and One task, together with search.
 
 In **Settings → Tags**, create, rename, recolour or delete custom tags. Colours come from the existing blue, orange, pink, purple, mustard and grey palette. Work and Home are fixed defaults. Custom tags use stable IDs, so renaming updates their labels without changing task identity. Deletion removes the label and filter option while keeping every associated task. A removed tag retains its capacity classification; choose **No tag** explicitly in the editor to clear that association and return to the untagged working-hours rule.
 
@@ -121,11 +129,11 @@ npm run test:browser
 
 Validated in this implementation:
 
-- 60 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours/tag backups, tag rename/delete, offline tag sync and read-only Snapshot aggregation/range boundaries, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
-- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; custom tags are isolated per account and direct writes are denied; calendar token/state tables deny both anonymous and signed-in browser roles
-- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions, dragging onto a day off, tag creation/filtering/rename/delete and tagged offline reopening, all Snapshot ranges, unchanged task storage, incoming-data refreshes and offline Snapshot navigation
+- 72 automated tests cover Quick Capture parsing, speech events/cancellation/errors, image validation, authenticated OCR limits/failures/low confidence, capture storage/backup compatibility, and capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours/tag backups, tag rename/delete, offline tag sync and read-only Snapshot aggregation/range boundaries, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
+- Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; custom tags are isolated per account and direct writes are denied; calendar token/state tables deny both anonymous and signed-in browser roles; OCR reservations enforce shared/account limits, retain the global count after account deletion and deny browser access
+- Headless Chrome: capture review with simulated speech/OCR, optional tags, selected/uncertain rows, removal, duplicate handling, draft recovery after reload/storage failure, offline typing; JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions, dragging onto a day off, tag creation/filtering/rename/delete and tagged offline reopening, all Snapshot ranges, unchanged task storage, incoming-data refreshes and offline Snapshot navigation
 
-**Not yet validated against live calendars or a live Supabase project:** real Outlook/Google OAuth, provider event accuracy and refresh-token renewal, physical iPhone/Safari behavior, plus real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior. PGlite and the simulated sync server do not replace these acceptance checks.
+**Not yet validated with live microphones, handwriting OCR, calendars or a live Supabase project:** real Outlook/Google OAuth, provider event accuracy and refresh-token renewal, physical iPhone/Safari behavior, plus real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior. PGlite and the simulated sync server do not replace these acceptance checks.
 
 Before considering cloud setup complete:
 
