@@ -15,6 +15,7 @@ To test locally, open \`index.html\` in a browser after downloading the reposito
 ## What works
 
 - Quick-capture Inbox for unscheduled tasks
+- Local bulk import into Inbox from a `.json`, `.md`, or `.txt` file; duplicate task titles are skipped
 - 30-day rolling planner on the left, with additional 30-day periods on demand (up to 365 days)
 - Inbox on the right in desktop Planner view
 - **One task** focus view below Today, showing the Main Thing or first unfinished task for today (the next appears when completed)
@@ -26,6 +27,15 @@ To test locally, open \`index.html\` in a browser after downloading the reposito
 - Instant task search
 - Save tasks in this browser's local storage
 - Sample tasks for first-time exploration, which you can remove
+
+## Importing a task list
+
+1. Open SimpleDo and select **Inbox** (or use the Inbox panel in Planner).
+2. Click **Import tasks** underneath the quick-add field.
+3. Choose a SimpleDo JSON file or a Markdown/plain-text list.
+4. The importer creates one unscheduled Inbox task per unique item, without deleting or changing any existing tasks.
+
+JSON can be `{"tasks":[{"title":"Task name","notes":"Optional details"}]}` or an array of task names. Imports happen only inside your own browser; the file and tasks are **never uploaded** to GitHub or to another server. Re-importing the same file won't create duplicates.
 
 ## Important limitations
 
