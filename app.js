@@ -46,7 +46,7 @@
 
   let tasks = [];
   let activeView = "planner";
-  let daysVisible = 7;
+  let daysVisible = 30;
   let query = "";
   let editingId = null;
   let dialogOpener = null;
@@ -320,7 +320,11 @@
       card.append(header, stack);
       els.daysRoot.append(card);
     }
-    els.moreDaysButton.hidden = activeView === "today" || Boolean(query);
+    els.moreDaysButton.hidden = activeView === "today" || Boolean(query) || daysVisible >= 365;
+    if (daysVisible < 365) {
+      const additionalDays = Math.min(30, 365 - daysVisible);
+      els.moreDaysButton.textContent = "Show another " + additionalDays + " days ↓";
+    }
     els.jumpTodayButton.hidden = activeView === "today";
   }
 
@@ -538,7 +542,7 @@
       render();
     });
     els.moreDaysButton.addEventListener("click", () => {
-      daysVisible = Math.min(daysVisible + 7, 365);
+      daysVisible = Math.min(daysVisible + 30, 365);
       render();
     });
     els.jumpTodayButton.addEventListener("click", () => {
