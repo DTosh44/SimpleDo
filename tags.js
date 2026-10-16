@@ -30,7 +30,7 @@
   records(){return this.store.state.tagRecords||{};}
   definitions(){return Object.values(this.records()).map(r=>copy(r.tag));}
   list(){return [...DEFAULTS,...this.definitions().filter(t=>!t.deleted).sort((a,b)=>a.name.localeCompare(b.name))];}
-  resolve(id){if(!id)return null;const builtin=DEFAULTS.find(t=>t.id===id);if(builtin)return builtin;const record=this.records()[id];return record ? record.tag.deleted?null:record.tag : {id,name:'Tag unavailable',color:'grey',context:'outside'};}
+  resolve(id){if(!id)return null;const builtin=DEFAULTS.find(t=>t.id===id);if(builtin)return builtin;const record=this.records()[id];return record ? record.tag.deleted?null:record.tag : {id,name:'Tag unavailable',color:'grey',context:'outside',unavailable:true};}
   context(task){return context(task,this.records());}
   scoped(tasks){return tasks.map(t=>({...t,capacityContext:this.context(t)}));}
   edit(id,values) {

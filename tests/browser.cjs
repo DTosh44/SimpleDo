@@ -135,7 +135,47 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityContext.setOffline(true);await capacityPage.reload();assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);await capacityContext.setOffline(false);
     await capacityPage.setViewportSize({width:390,height:844});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-mobile.png'});
     await capacityPage.setViewportSize({width:1440,height:1000});await capacityPage.locator('#day-'+tuesday).scrollIntoViewIfNeeded();await capacityPage.screenshot({path:'/tmp/simpledo-tags-desktop.png'});
+    await capacityPage.locator('#tagFilter').selectOption('home');
+    await capacityPage.locator('#searchInput').fill('Buy groceries');
+    const savedBeforeSnapshot=await capacityPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
+    const allTasksBefore=JSON.parse(savedBeforeSnapshot);
+    await capacityPage.locator('[data-nav="snapshot"]').click();
+    assert.equal(await capacityPage.locator('#workspace').isVisible(),false);assert.equal(await capacityPage.locator('#snapshotView').isVisible(),true);
+    assert.equal(await capacityPage.locator('#tagFilter').isVisible(),false);assert.equal(await capacityPage.locator('#searchInput').isVisible(),false);
+    assert.equal(await capacityPage.locator('#newTaskButton').isVisible(),false);
+    assert.equal(await capacityPage.locator('#snapshot-inbox').innerText(),'1','Snapshot ignores Planner search/tag filters');
+    assert.equal(await capacityPage.locator('#snapshotDensity').isVisible(),false);
+    for(const range of ['week','month','year','today']) {
+      await capacityPage.locator('[data-snapshot-range="'+range+'"]').click();
+      assert.equal(await capacityPage.locator('[data-snapshot-range="'+range+'"]').getAttribute('aria-pressed'),'true');
+      assert.equal(await capacityPage.locator('#snapshot-inbox').innerText(),'1');
+    }
+    await capacityPage.locator('[data-snapshot-range="year"]').click();
+    assert.equal(await capacityPage.locator('#snapshotBins li').count(),12);
+    const snapshotYear=await capacityPage.evaluate(()=>new Date().getFullYear());
+    const fullTasks=Object.values(allTasksBefore.records).filter(r=>!r.deleted&&(!r.task.date||r.task.date.startsWith(snapshotYear+'-'))).length;
+    const shown=await capacityPage.locator('#snapshotTags li strong').allTextContents();assert.equal(shown.reduce((sum,n)=>sum+Number(n),0),fullTasks);
+    await capacityPage.keyboard.press('n');assert.equal(await capacityPage.locator('#taskDialog').isVisible(),false,'Snapshot has no task-edit shortcut');
+    assert.equal(await capacityPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),savedBeforeSnapshot,'Snapshot range changes never write task data');
+    await capacityPage.screenshot({path:'/tmp/simpledo-snapshot-desktop.png'});
+    await capacityPage.setViewportSize({width:390,height:844});
+    await capacityPage.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
+    await capacityPage.screenshot({path:'/tmp/simpledo-snapshot-mobile.png'});
+    assert.equal(await capacityPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    for(const selector of ['#snapshotRanges','#snapshotBins','[data-nav="snapshot"]']) {
+      const box=await capacityPage.locator(selector).boundingBox();assert.ok(box&&box.x>=0&&box.x+box.width<=390,selector+' fits on mobile');
+    }
+    // A synced/local storage update refreshes an already-open Snapshot without a new snapshot schema.
+    await capacityPage.evaluate(()=>{
+      const data=JSON.parse(localStorage.getItem('simpledo.data.v2'));
+      data.records['snapshot-arrival']={task:{id:'snapshot-arrival',title:'Arrived from another device',notes:'',date:null,completed:false,main:false},deleted:false,dirty:false,version:1};
+      localStorage.setItem('simpledo.data.v2',JSON.stringify(data));window.dispatchEvent(new StorageEvent('storage',{key:'simpledo.data.v2'}));
+    });
+    assert.equal(await capacityPage.locator('#snapshot-inbox').innerText(),'2');assert.equal(await capacityPage.locator('#sidebarInboxCount').innerText(),'2');
+    await capacityContext.setOffline(true);await capacityPage.reload();await capacityPage.locator('[data-nav="snapshot"]').click();
+    assert.equal(await capacityPage.locator('#snapshot-inbox').innerText(),'2');await capacityContext.setOffline(false);
+    await capacityPage.locator('[data-nav="planner"]').click();assert.equal(await capacityPage.locator('#workspace').isVisible(),true);assert.equal(await capacityPage.locator('#snapshotView').isVisible(),false);
     await capacityContext.close();assert.deepEqual(errors,[]);
-    console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export and offline reload.');
+    console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export, Snapshot ranges/read-only updates and offline reload.');
   } finally {await browser.close(); server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});

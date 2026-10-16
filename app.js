@@ -113,6 +113,7 @@
   let planning = null;
   let tagCatalog = null;
   let tagUI = null;
+  let snapshot = null;
   let suggestedDate = null;
   let saveFailed = false;
   function load() {
@@ -410,11 +411,16 @@
   }
 
   function render() {
-    rollover();
-    renderInbox();
-    renderDays();
+    const isSnapshot = activeView === "snapshot";
+    if (!isSnapshot) rollover();
+    $("workspace").hidden = isSnapshot;
+    $("snapshotView").hidden = !isSnapshot;
+    document.querySelector(".tag-filter-row").hidden = isSnapshot;
+    els.sidebarInboxCount.textContent = String(tasks.filter(t => !t.date && !t.completed).length);
+    if (isSnapshot) snapshot?.render();
+    else { renderInbox(); renderDays(); }
     const showDemo = tasks.some((task) => task.demo);
-    els.demoBanner.hidden = !showDemo;
+    els.demoBanner.hidden = !showDemo || isSnapshot;
     document.querySelectorAll("[data-nav]").forEach((button) => {
       const active = button.dataset.nav === activeView;
       button.classList.toggle("active", active);
@@ -427,12 +433,13 @@
   }
 
   function setView(view) {
-    activeView = ["planner", "today", "one-task", "inbox"].includes(view) ? view : "planner";
+    activeView = ["planner", "today", "one-task", "inbox", "snapshot"].includes(view) ? view : "planner";
     if (activeView === "one-task") {
       query = "";
       els.searchInput.value = "";
     }
     const labels = {
+      snapshot: ["Snapshot", "See the shape of things", "A quiet look at what’s waiting, planned and complete.", "A LITTLE PERSPECTIVE"],
       planner: ["Planner", "Make room for today", "Everything on your mind, with space to focus on what matters now.", "YOUR SPACE, YOUR PACE"],
       inbox: ["Inbox", "Clear your head", "Capture the little and the big things. Decide when to do them later.", "ROOM FOR EVERY THOUGHT"],
       today: ["Today", "Just focus on today", "No long lists. Only what deserves your attention right now.", "ONE DAY AT A TIME"],
@@ -1060,7 +1067,7 @@
       if (event.target === els.taskDialog) closeTask();
     });
     els.searchInput.addEventListener("input", (event) => {
-      if (activeView === "one-task" && event.target.value.trim()) setView("planner");
+      if (["one-task", "snapshot"].includes(activeView) && event.target.value.trim()) setView("planner");
       query = event.target.value.trim().toLocaleLowerCase();
       render();
     });
@@ -1085,14 +1092,14 @@
     });
     document.addEventListener("keydown", (event) => {
       if (
-        event.key === "/" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        event.key === "/" && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
         els.searchInput.focus();
       }
       if (
-        (event.key === "n" || event.key === "N") && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
+        (event.key === "n" || event.key === "N") && activeView !== "snapshot" && !els.taskDialog.open && !$("settingsDialog").open && !$("restoreDialog").open &&
         !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
       ) {
         event.preventDefault();
@@ -1199,6 +1206,7 @@
     tagUI = new SimpleDoTagUI.Controller(tagCatalog, {tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule()});
     planning = new SimpleDoPlanning.Controller(store, {changed: () => render(), tags:tagCatalog});
   }
+  snapshot = new SimpleDoSnapshot.Controller({tasks:()=>tasks,today:todayKey,catalog:()=>tagCatalog||{resolve:()=>null},palette:()=>SimpleDoTags.PALETTE});
   loadFocusSession();
   wireEvents();
   setView("planner");

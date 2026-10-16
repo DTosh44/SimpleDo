@@ -10,7 +10,7 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 
 - Inbox quick capture and bulk `.json`, `.md` and `.txt` import
 - 30-day planner, extending to 365 days; desktop drag-and-drop scheduling
-- Today, One task, Main Thing, search, editing and completion
+- Today, One task, Snapshot, Main Thing, search, editing and completion
 - Unfinished past tasks return to Inbox
 - Per-task focus duration and a browser-local Pomodoro timer, including the browser-tab countdown (paused/finished states and normal-title restoration)
 - Optional task duration estimates, working hours, quiet daily capacity bars and scheduling suggestions
@@ -19,6 +19,16 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 - Discreet Settings with backup export/restore, account controls, working hours and calendars
 
 Tasks are saved on this device first. After one successful online load over HTTPS (or localhost), a service worker caches the app shell for offline reopening. Local tasks, backups, restoring and focus timers work offline. Running timers never sync between devices. Browser storage is not permanent archival storage: keep downloaded backups somewhere safe, especially before clearing browser data or switching devices.
+
+## Snapshot
+
+Choose **Snapshot** in the navigation for a read-only overview of **Today**, **This week**, **This month** or **This year**. It shows current Inbox tasks, unfinished scheduled tasks, completed tasks and tasks marked returned to Inbox. A slim status bar, a labelled tag breakdown and a small day/week/month distribution strip show the shape of the work. Counts remain visible beside every colour; nothing is scored and chart elements do not edit tasks.
+
+Snapshot uses the existing task model and needs no migration or extra service. It updates from local changes, restores and incoming task/tag sync, and works with the cached app offline. All tasks are included independently of the Planner's search and tag filters. Existing tasks, notes and task timestamps are unchanged by opening Snapshot or switching ranges.
+
+**Date rules:** current Inbox and other undated tasks are included in every range. Dated tasks belong to the range containing their scheduled day, including tasks currently marked complete. Weeks run Monday–Sunday; months and years use calendar boundaries in the browser's local date. Completed counts describe current task status rather than completion-date history, which the existing app does not record. Returned is a subset of the current unfinished Inbox, based on the existing `rolled` flag, and is not a history of past returns. The in-view **What’s included** note explains these rules.
+
+Tag breakdowns include Work, Home, used custom tags and No tag; removed tags count under No tag and unsynchronised definitions are labelled Tag unavailable. Distribution counts dated tasks, including completed tasks, by day for a week, seven-day blocks for a month and calendar months for a year. Undated tasks are not plotted. These are task counts, independent of work/personal capacity rules and estimated hours.
 
 ## Simple tags
 
@@ -111,9 +121,9 @@ npm run test:browser
 
 Validated in this implementation:
 
-- 52 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours/tag backups, tag rename/delete and offline tag sync, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
+- 60 automated tests cover capacity/DST, provider adapters, OAuth and encrypted tokens, offline calendar caching, account switches, estimate/working-hours/tag backups, tag rename/delete, offline tag sync and read-only Snapshot aggregation/range boundaries, and the existing storage/simulated sync cases: migration, corruption preservation, backup validation, duplicate merges, replacement checkpoints, storage failure, offline edits/deletions, conflict recovery, in-flight changes, stale responses, browser-tab edits and account consent
 - Actual PostgreSQL migration and RLS/permission tests in PGlite: per-account isolation, denied anonymous/direct writes, revision comparisons, idempotent retries and deletion tombstones; custom tags are isolated per account and direct writes are denied; calendar token/state tables deny both anonymous and signed-in browser roles
-- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions, dragging onto a day off, tag creation/filtering/rename/delete and tagged offline reopening
+- Headless Chrome: JSON download/restore, repeat import, replace confirmation, recovery copy, existing Inbox importer, focus duration/timer, offline reload and capture, desktop and 390px mobile layouts, working-hour editing, optional date suggestions, dragging onto a day off, tag creation/filtering/rename/delete and tagged offline reopening, all Snapshot ranges, unchanged task storage, incoming-data refreshes and offline Snapshot navigation
 
 **Not yet validated against live calendars or a live Supabase project:** real Outlook/Google OAuth, provider event accuracy and refresh-token renewal, physical iPhone/Safari behavior, plus real email delivery, deployed SDK authentication/token renewal, actual multi-device network behavior. PGlite and the simulated sync server do not replace these acceptance checks.
 
