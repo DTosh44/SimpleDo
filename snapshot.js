@@ -92,17 +92,46 @@
  }
  class Controller {
   constructor(hooks) {
-   this.hooks=hooks;this.range='today';
+   this.hooks=hooks;this.range='today';this.custom=null;
+   const from=document.getElementById('snapshotFromDate'),to=document.getElementById('snapshotToDate');
    document.getElementById('snapshotRanges').addEventListener('click',event=>{
     const button=event.target.closest('button[data-snapshot-range]');if(!button)return;
-    this.range=button.dataset.snapshotRange;this.render();
+    const next=button.dataset.snapshotRange;
+    if(!['today','week','month','year','custom'].includes(next))return;
+    if(next==='custom'&&!this.custom) {
+     // Keep the user's current preset as the starting selection.
+     this.custom=period(this.range,this.hooks.today());
+     from.value=this.custom.start;to.value=this.custom.end;
+    }
+    this.range=next;this.render();
    });
+   const changed=()=>{
+    this.custom={start:from.value,end:to.value};
+    if(this.range==='custom')this.render();
+   };
+   from.addEventListener('change',changed);to.addEventListener('change',changed);
   }
   render() {
-   const $=id=>document.getElementById(id),model=summarize(this.hooks.tasks(),this.range,this.hooks.today(),this.hooks.catalog());
+   const $=id=>document.getElementById(id),isCustom=this.range==='custom';
+   $('snapshotCustomDates').hidden=!isCustom;
+   document.querySelectorAll('[data-snapshot-range]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.snapshotRange===this.range)));
+   const error=$('snapshotCustomError');
+   if(isCustom){
+    const startValid=dateValid(this.custom?.start),endValid=dateValid(this.custom?.end);
+    const ordered=startValid&&endValid&&this.custom.start<=this.custom.end;
+    $('snapshotFromDate').setAttribute('aria-invalid',String(!startValid||!ordered));
+    $('snapshotToDate').setAttribute('aria-invalid',String(!endValid||!ordered));
+    if(!ordered){
+     error.textContent=!startValid||!endValid?'Choose valid From and To dates.':'From must be on or before To.';
+     error.hidden=false;
+     return; // Do not replace the last valid figures with invalid data.
+    }
+   }
+   error.hidden=true;error.textContent='';
+   $('snapshotFromDate').removeAttribute('aria-invalid');$('snapshotToDate').removeAttribute('aria-invalid');
+   const model=summarize(this.hooks.tasks(),this.range,this.hooks.today(),this.hooks.catalog(),this.custom);
    const format=date=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(date+'T12:00:00Z'));
    $('snapshotPeriod').textContent=format(model.start)+(model.start===model.end?'':' – '+format(model.end));
-   document.querySelectorAll('[data-snapshot-range]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.snapshotRange===this.range)));
    for(const [name,value] of Object.entries(model.counts))$('snapshot-'+name).textContent=value;
    $('snapshotEmpty').hidden=model.total!==0;
    $('snapshotScope').textContent=model.total+' '+(model.total===1?'task':'tasks')+' · Inbox and undated tasks included'+(model.samples?' · includes samples':'');
@@ -119,8 +148,8 @@
     item.append(label,count);$('snapshotTags').append(item);
    }
    $('snapshotBins').dataset.range=this.range;
-   $('snapshotDensity').hidden=this.range==='today';$('snapshotBins').replaceChildren();
-   $('snapshotDensityLabel').textContent=this.range==='year'?'By month':this.range==='month'?'By week of the month':'By day';
+   $('snapshotDensity').hidden=model.bins.length===0;$('snapshotBins').replaceChildren();
+   $('snapshotDensityLabel').textContent=this.range==='month'?'By week of the month':'By '+model.unit;
    $('snapshotDensityNote').textContent=model.dated+' dated '+(model.dated===1?'task':'tasks')+'; '+model.undated+' undated not plotted. Counts include completed tasks, not estimated hours.';
    const max=Math.max(1,...model.bins.map(b=>b.count));
    for(const bin of model.bins) {
