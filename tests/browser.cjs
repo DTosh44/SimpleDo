@@ -39,7 +39,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     // Accents reflect one stable role, regardless of which page is active.
     assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(69, 120, 201)','Planner title matches blue navigation');
     await page.locator('[data-nav=inbox]').click();
-    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(239, 155, 45)','Inbox title matches orange capture');
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(140, 77, 11)','Inbox title uses legible dark orange');
     await page.locator('[data-nav=one-task]').click();
     assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(120, 81, 173)','One Task title matches purple priority');
     await page.locator('[data-nav=snapshot]').click();
