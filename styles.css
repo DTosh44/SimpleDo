@@ -632,3 +632,43 @@ body[data-active-view=one-task] .day-add {color:var(--purple);}
 @media (min-width:651px) {
   body[data-active-view="planner"] .timeline-heading {margin-bottom:0;}
 }
+
+
+/* Custom Snapshot dates use native pickers, with no new modal or stored preference. */
+.snapshot-ranges {flex-wrap:wrap;}
+.snapshot-ranges button {min-height:40px;}
+.snapshot-custom-dates {
+  display:flex;align-items:flex-end;flex-wrap:wrap;gap:12px 14px;
+  margin:-13px 0 25px;
+}
+.snapshot-custom-dates label {
+  display:flex;flex-direction:column;gap:7px;
+  width:174px;max-width:100%;font-size:12px;font-weight:650;color:#555;
+}
+.snapshot-custom-dates input {
+  display:block;width:100%;min-width:0;min-height:44px;padding:9px 11px;
+  background:#fff;border:1px solid #d9d9d9;border-radius:9px;
+  color:var(--ink);font:inherit;font-size:14px;
+}
+.snapshot-custom-dates input:focus-visible {
+  outline:2px solid var(--purple);outline-offset:2px;
+}
+.snapshot-custom-dates input[aria-invalid=true] {border-color:#a52a4f;}
+.snapshot-date-error {
+  margin:0;flex:1 0 100%;font-size:12px;line-height:1.5;color:#8e2952;
+}
+.snapshot-bins[data-range=custom] {
+  grid-template-columns:repeat(auto-fit,minmax(37px,1fr));
+}
+.snapshot-bins[data-range=custom] li {
+  overflow-wrap:anywhere;
+}
+@media(max-width:650px) {
+  .snapshot-ranges {justify-content:flex-start;gap:4px;}
+  .snapshot-ranges button {flex:1 1 auto;padding:9px 10px;}
+  .snapshot-custom-dates {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:-13px 0 23px;}
+  .snapshot-custom-dates label {width:auto;min-width:0;}
+  .snapshot-custom-dates input {font-size:16px;}
+  .snapshot-date-error {grid-column:1/-1;}
+  .snapshot-bins[data-range=custom] {grid-template-columns:repeat(auto-fit,minmax(40px,1fr));}
+}
