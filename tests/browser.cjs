@@ -36,6 +36,10 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(inboxAddColour,'rgb(239, 155, 45)');
     const logoColour=await page.locator('.brand-mark').evaluate(el=>getComputedStyle(el).backgroundColor);
     assert.equal(logoColour,'rgb(21, 21, 21)','logo stays black');
+    assert.equal(await page.locator('#saveTaskButton').evaluate(el=>getComputedStyle(el).backgroundColor),
+      'rgb(239, 155, 45)','saving a task is orange even inside its editor');
+    assert.equal(await page.locator('#captureAdd').evaluate(el=>getComputedStyle(el).backgroundColor),
+      'rgb(239, 155, 45)','confirming a captured list is orange');
     // Accents reflect one stable role, regardless of which page is active.
     assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(69, 120, 201)','Planner title matches blue navigation');
     await page.locator('[data-nav=inbox]').click();
