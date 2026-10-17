@@ -8,7 +8,7 @@
   <title>SimpleDo</title>
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=20">
+  <link rel="stylesheet" href="./styles.css?v=21">
   <script src="./tags.js?v=14" defer></script>
   <script src="./tag-ui.js?v=18" defer></script>
   <script src="./capacity.js?v=13" defer></script>
@@ -18,7 +18,7 @@
   <script src="./cloud.js?v=13" defer></script>
   <script src="./calendar.js?v=13" defer></script>
   <script src="./planning.js?v=13" defer></script>
-  <script src="./snapshot.js?v=14" defer></script>
+  <script src="./snapshot.js?v=15" defer></script>
   <script src="./capture.js?v=15" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
@@ -104,13 +104,27 @@
 
         </div>
         <section id="snapshotView" class="snapshot-view" aria-label="Task snapshot" hidden>
-          <div class="snapshot-top"><div id="snapshotRanges" class="snapshot-ranges" role="group" aria-label="Snapshot time range"><button type="button" data-snapshot-range="today" aria-pressed="true">Today</button><button type="button" data-snapshot-range="week" aria-pressed="false">This week</button><button type="button" data-snapshot-range="month" aria-pressed="false">This month</button><button type="button" data-snapshot-range="year" aria-pressed="false">This year</button></div><p id="snapshotPeriod"></p></div>
+          <div class="snapshot-top">
+            <div id="snapshotRanges" class="snapshot-ranges" role="group" aria-label="Snapshot time range">
+              <button type="button" data-snapshot-range="today" aria-pressed="true">Today</button>
+              <button type="button" data-snapshot-range="week" aria-pressed="false">This week</button>
+              <button type="button" data-snapshot-range="month" aria-pressed="false">This month</button>
+              <button type="button" data-snapshot-range="year" aria-pressed="false">This year</button>
+              <button type="button" data-snapshot-range="custom" aria-pressed="false">Custom</button>
+            </div>
+            <p id="snapshotPeriod"></p>
+          </div>
+          <div id="snapshotCustomDates" class="snapshot-custom-dates" role="group" aria-label="Custom Snapshot dates" hidden>
+            <label for="snapshotFromDate">From<input id="snapshotFromDate" type="date" required></label>
+            <label for="snapshotToDate">To<input id="snapshotToDate" type="date" required></label>
+            <p id="snapshotCustomError" class="snapshot-date-error" role="status" aria-live="polite" hidden></p>
+          </div>
           <div class="snapshot-counts"><div><strong id="snapshot-inbox">0</strong><span>Inbox <small>now</small></span></div><div><strong id="snapshot-scheduled">0</strong><span>Scheduled <small>unfinished</small></span></div><div><strong id="snapshot-completed">0</strong><span>Completed <small>in this snapshot</small></span></div><div><strong id="snapshot-returned">0</strong><span>Returned <small>part of Inbox</small></span></div></div>
           <div class="snapshot-bar snapshot-status-bar" id="snapshotStatusBar" aria-hidden="true"></div>
           <p class="snapshot-scope" id="snapshotScope"></p><p id="snapshotEmpty" class="snapshot-empty" hidden>No tasks in this range.</p>
           <section class="snapshot-section" aria-labelledby="snapshotTagHeading"><h2 id="snapshotTagHeading">By tag</h2><div class="snapshot-bar" id="snapshotTagBar" aria-hidden="true"></div><ul class="snapshot-tags" id="snapshotTags"></ul></section>
           <section class="snapshot-section" id="snapshotDensity" aria-labelledby="snapshotDensityLabel" hidden><h2 id="snapshotDensityLabel">By day</h2><ul class="snapshot-bins" id="snapshotBins"></ul><p class="snapshot-scope" id="snapshotDensityNote"></p></section>
-          <details class="snapshot-method"><summary>What’s included</summary><p>Current Inbox and other undated tasks appear in every range. Dated tasks use their scheduled day, including completed tasks. Weeks run Monday to Sunday; months and years use calendar boundaries.</p><p>Completed is a task’s current status, not a history of when it was completed. Returned counts unfinished Inbox tasks currently marked as returned, not historical returns. It is already included in Inbox. Removed tags appear under No tag.</p><p>This view includes all tasks, independently of Planner search and tag filters. Distribution shows task counts, including Work and Home, without assuming how many working hours they need.</p></details>
+          <details class="snapshot-method"><summary>What’s included</summary><p>Current Inbox and other undated tasks appear in every range. Dated tasks use their scheduled day, including completed tasks. All ranges include their first and last dates; custom ranges may cross years. Weeks run Monday to Sunday; months and years use calendar boundaries.</p><p>Completed is a task’s current status, not a history of when it was completed. Returned counts unfinished Inbox tasks currently marked as returned, not historical returns. It is already included in Inbox. Removed tags appear under No tag.</p><p>This view includes all tasks, independently of Planner search and tag filters. Distribution shows task counts, including Work and Home, without assuming how many working hours they need.</p></details>
         </section>
       </main>
     </div>
