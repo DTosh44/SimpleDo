@@ -49,6 +49,7 @@ body[data-active-view="one-task"] .task-check{width:23px;height:23px}
   /* Semantic roles: use these in UI, independent of user-selected tag colours. */
   --colour-plan: var(--blue);
   --colour-capture: var(--orange);
+  --colour-capture-ink: #8c4d0b; /* darker orange for icons/text on white */
   --colour-today: var(--pink);
   --colour-priority: var(--purple);
   --colour-completed: #747474;
@@ -538,7 +539,7 @@ body[data-active-view=today] .nav-item.active {box-shadow:inset 3px 0 0 var(--pi
 body[data-active-view=one-task] .nav-item.active {box-shadow:inset 3px 0 0 var(--purple);}
 body[data-active-view=snapshot] .nav-item.active {box-shadow:inset 3px 0 0 var(--colour-snapshot);}
 body[data-active-view=planner] .nav-item.active .nav-icon {color:var(--blue);}
-body[data-active-view=inbox] .nav-item.active .nav-icon {color:var(--orange);}
+body[data-active-view=inbox] .nav-item.active .nav-icon {color:var(--colour-capture-ink);}
 body[data-active-view=today] .nav-item.active .nav-icon {color:var(--pink);}
 body[data-active-view=one-task] .nav-item.active .nav-icon {color:var(--purple);}
 body[data-active-view=snapshot] .nav-item.active .nav-icon {color:var(--colour-snapshot);}
@@ -547,12 +548,12 @@ body[data-active-view=inbox] .eyebrow-line {background:var(--orange);}
 body[data-active-view=today] .eyebrow-line {background:var(--pink);}
 body[data-active-view=one-task] .eyebrow-line {background:var(--purple);}
 body[data-active-view=snapshot] .eyebrow-line {background:var(--colour-snapshot);}
-.day-add {color:var(--colour-capture);}
-.day-card.today .day-add {color:var(--colour-capture);}
+.day-add {color:var(--colour-capture-ink);}
+.day-card.today .day-add {color:var(--colour-capture-ink);}
 .day-toggle .day-chevron {border-color:#5980c4;}
 body[data-active-view=one-task] .day-card {border-top:2px solid var(--purple);}
-body[data-active-view=one-task] .day-add {color:var(--colour-capture);}
-#captureSpeak, #captureScan {color:var(--colour-capture);}
+body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
+#captureSpeak, #captureScan {color:var(--colour-capture-ink);}
 #captureSpeak:hover, #captureScan:hover {background:#fff4e7;}
 .inbox-panel .inbox-import-button:hover {border-color:var(--orange);}
 .today-feature-label {color:#a32953;}
@@ -720,7 +721,7 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture);}
 /* Consistent meaning across pages. The brand's pink dot stays branding;
    the page-title dot uses the current view's colour instead. */
 body[data-active-view="planner"] .full-stop {color:var(--colour-plan);}
-body[data-active-view="inbox"] .full-stop {color:var(--colour-capture);}
+body[data-active-view="inbox"] .full-stop {color:var(--colour-capture-ink);}
 body[data-active-view="today"] .full-stop {color:var(--colour-today);}
 body[data-active-view="one-task"] .full-stop {color:var(--colour-priority);}
 body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
