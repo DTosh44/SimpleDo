@@ -26,6 +26,16 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
   };
   try {
     await page.goto(base);
+    // Day-level add buttons use a quiet orange outline, unlike solid orange primary capture.
+    const dayAdd=await page.locator('.day-add').first().evaluate(el=>{
+      const style=getComputedStyle(el);
+      return {border:style.borderTopColor,ink:style.color,background:style.backgroundColor};
+    });
+    assert.deepEqual(dayAdd,{
+      border:'rgb(239, 155, 45)',
+      ink:'rgb(140, 77, 11)',
+      background:'rgb(255, 255, 255)'
+    });
     // The prominent capture action stands apart from the black logo and timer buttons.
     const primaryColour=await page.locator('#newTaskButton').evaluate(el=>{
       const style=getComputedStyle(el);
