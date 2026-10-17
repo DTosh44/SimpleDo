@@ -97,7 +97,7 @@ body { background: #ffffff; color: var(--ink); }
 .day-card.today { background:#f8f8f8; border-color:#cfcfcf; }
 .today .day-date { background:#fff; border-color:#d0d0d0; }
 .today-label { background:#fdebf2; color:#872950; }
-.day-add:hover { background:#efefef; color:var(--ink); }
+.day-add:hover { background:#fff4e7; color:var(--colour-capture-ink); }
 .more-days { color:var(--ink); }
 .task-card:hover { border-color:#b3b3b3; }
 .task-card.main-task { background:#fff; border-color:#dcdcdc; box-shadow: inset 3px 0 0 var(--colour-priority); }
