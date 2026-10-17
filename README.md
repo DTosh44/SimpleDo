@@ -6,6 +6,14 @@
 
 Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client. No production build step, trackers or required account. Black and white with restrained, purposeful colour accents.
 
+## Product principles and future direction
+
+**Intent:** **Plan it. Forget it. Do it.** SimpleDo should remain a quiet, immediately understandable personal planner: capture a task, choose when it belongs, focus on what matters and see your workload without a complicated project-management workflow. Simple, usable and **not neon** are design principles, not just implementation details. All essential task management must work without an account or paid backend.
+
+**Approved appearance and interaction direction:** white, minimal canvas with restrained colourful accents and black/neutral structure. Use **pink with white text/icons** for the New task and capture/confirmation CTAs; **orange** for Today, the active day and progress; **blue** for Planner/work scheduling; **purple** for Main Thing/focus; **muted neutral grey** for Snapshot controls. Keep the coloured full-stop and tag devices, simple day **+** buttons and clear contrast. Avoid a row of visually identical heavy black buttons or loud neon blocks. The detailed current style, tag behaviour and range-picker interactions are documented below.
+
+**Next direction:** prioritise dependable sync/backup and real calendar-connected capacity verification, while retaining local/offline use and clear personal-versus-working-hour treatment. Future scope should improve the day-to-day task experience rather than turning SimpleDo into an enterprise PM suite. Unverified OAuth/Supabase connections must be labelled as such; do not claim they are tested live simply because integration code exists.
+
 ## Everyday use
 
 - Inbox Type / Speak / Scan capture with editable review and optional batch tags; bulk `.json`, `.md` and `.txt` import
