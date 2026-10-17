@@ -624,3 +624,11 @@ body[data-active-view=one-task] .day-add {color:var(--purple);}
 .timeline-heading h2::after {background:var(--blue);}
 .inbox-panel .section-title-row h2::after {background:var(--orange);}
 @media(max-width:860px){ .sidebar .brand {margin-bottom:0;} }
+
+
+/* Match the first Planner day with the top of the Inbox quick-add field.
+   Both columns already share the same heading and explanatory-text height;
+   the extra 15px margin on the Planner alone caused the misalignment. */
+@media (min-width:651px) {
+  body[data-active-view="planner"] .timeline-heading {margin-bottom:0;}
+}
