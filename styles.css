@@ -741,3 +741,21 @@ body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
   border-color:var(--colour-capture);
   box-shadow:0 0 0 3px #ef9b2d22;
 }
+
+
+/* Completing capture and committing a task use the same orange action as
+   quick-add; account and focus controls remain neutral. */
+#saveTaskButton, #captureAdd {
+  background:var(--colour-capture);
+  border-color:var(--colour-capture);
+  color:var(--ink);
+}
+#saveTaskButton:hover, #captureAdd:hover {
+  background:#f7af50;
+  border-color:#f7af50;
+  color:var(--ink);
+}
+#saveTaskButton:focus-visible, #captureAdd:focus-visible {
+  outline:2px solid var(--ink);
+  outline-offset:3px;
+}
