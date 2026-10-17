@@ -26,14 +26,14 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
   };
   try {
     await page.goto(base);
-    // Day-level add buttons use a quiet orange outline, unlike solid orange primary capture.
+    // Day-level plus buttons remain subtle with neutral borders and dark-pink icons.
     const dayAdd=await page.locator('.day-add').first().evaluate(el=>{
       const style=getComputedStyle(el);
       return {border:style.borderTopColor,ink:style.color,background:style.backgroundColor};
     });
     assert.deepEqual(dayAdd,{
-      border:'rgb(239, 155, 45)',
-      ink:'rgb(140, 77, 11)',
+      border:'rgb(216, 216, 216)',
+      ink:'rgb(142, 41, 82)',
       background:'rgb(255, 255, 255)'
     });
     // The prominent capture action stands apart from the black logo and timer buttons.
@@ -41,21 +41,29 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
       const style=getComputedStyle(el);
       return {background:style.backgroundColor,foreground:style.color};
     });
-    assert.deepEqual(primaryColour,{background:'rgb(239, 155, 45)',foreground:'rgb(21, 21, 21)'});
+    assert.deepEqual(primaryColour,{background:'rgb(227, 68, 125)',foreground:'rgb(21, 21, 21)'});
     const inboxAddColour=await page.locator('#quickAddForm button[type="submit"]').evaluate(el=>getComputedStyle(el).backgroundColor);
-    assert.equal(inboxAddColour,'rgb(239, 155, 45)');
+    assert.equal(inboxAddColour,'rgb(227, 68, 125)');
     const logoColour=await page.locator('.brand-mark').evaluate(el=>getComputedStyle(el).backgroundColor);
     assert.equal(logoColour,'rgb(21, 21, 21)','logo stays black');
     assert.equal(await page.locator('#saveTaskButton').evaluate(el=>getComputedStyle(el).backgroundColor),
-      'rgb(239, 155, 45)','saving a task is orange even inside its editor');
+      'rgb(227, 68, 125)','saving a task uses the same pink action');
     assert.equal(await page.locator('#captureAdd').evaluate(el=>getComputedStyle(el).backgroundColor),
-      'rgb(239, 155, 45)','confirming a captured list is orange');
-    // Accents reflect one stable role, regardless of which page is active.
-    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(69, 120, 201)','Planner title matches blue navigation');
-    await page.locator('[data-nav=inbox]').click();
-    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(140, 77, 11)','Inbox title uses legible dark orange');
-    await page.locator('[data-nav=one-task]').click();
-    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(120, 81, 173)','One Task title matches purple priority');
+      'rgb(227, 68, 125)','confirming a captured list uses pink');
+    assert.equal(await page.locator('#captureReviewText').evaluate(el=>getComputedStyle(el).backgroundColor),
+      'rgb(227, 68, 125)','reviewing captured text uses pink');
+    // Page titles and branding no longer add competing decorative colours.
+    for(const view of ['planner','inbox','one-task']){
+      await page.locator('[data-nav='+view+']').click();
+      assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),
+        'rgb(21, 21, 21)','every page-title full stop stays black');
+    }
+    assert.equal(await page.locator('.brand-mark').evaluate(el=>getComputedStyle(el,'::after').content),
+      'none','no multicolour stripe under the logo');
+    assert.equal(await page.locator('#timelineTitle').evaluate(el=>getComputedStyle(el,'::after').content),
+      'none','no decorative dot after Your days');
+    assert.equal(await page.locator('#inboxTitle').evaluate(el=>getComputedStyle(el,'::after').content),
+      'none','no decorative dot after Inbox');
     await page.locator('[data-nav=snapshot]').click();
     const snapshotSelection=await page.locator('[data-snapshot-range=today]').evaluate(el=>{
       const style=getComputedStyle(el);
@@ -64,7 +72,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(snapshotSelection.background,'rgb(240, 240, 240)','Snapshot uses a light active range, not a black button');
     assert.equal(snapshotSelection.colour,'rgb(21, 21, 21)','Snapshot selected range has dark text');
     assert.doesNotMatch(snapshotSelection.shadow,/224, 196, 77|mustard/,'no mustard underline on selected Snapshot range');
-    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(48, 48, 48)','Snapshot is neutral');
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(21, 21, 21)','Snapshot title punctuation stays black');
     await page.locator('[data-nav=planner]').click();
     await settings();
     assert.match(await page.locator('#accountMessage').innerText(),/not configured/);
