@@ -1,6 +1,6 @@
 {
   "name": "simpledo",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "private": true,
   "description": "Local-first minimalist planner with optional Supabase sync",
   "scripts": {
