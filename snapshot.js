@@ -4,16 +4,64 @@
  const dateValid=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
  const key=date=>date.toISOString().slice(0,10);
  const shift=(value,days)=>{const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return key(d);};
- function period(range,today) {
+ function period(range,today,custom=null) {
   if(!dateValid(today))throw Error('Invalid Snapshot date.');
+  if(range==='custom') {
+   if(!custom||!dateValid(custom.start)||!dateValid(custom.end))throw Error('Choose valid From and To dates.');
+   if(custom.start>custom.end)throw Error('From must be on or before To.');
+   return {start:custom.start,end:custom.end};
+  }
   const d=new Date(today+'T12:00:00Z'),year=d.getUTCFullYear(),month=d.getUTCMonth();
   if(range==='week'){const start=shift(today,-((d.getUTCDay()+6)%7));return {start,end:shift(start,6)};}
   if(range==='month')return {start:key(new Date(Date.UTC(year,month,1))),end:key(new Date(Date.UTC(year,month+1,0)))};
   if(range==='year')return {start:year+'-01-01',end:year+'-12-31'};
   return {start:today,end:today};
  }
- function summarize(tasks,range,today,catalog={resolve:()=>null}) {
-  const bounds=period(range,today),inRange=date=>date>=bounds.start&&date<=bounds.end;
+ // Aggregate custom ranges using a scale that fits the dates, even across years.
+ // Buckets include both ends and never contain tasks outside the selected period.
+ function customDensity(bounds) {
+  const bins=[],first=bounds.start,last=bounds.end;
+  const days=Math.round((Date.parse(last+'T12:00:00Z')-Date.parse(first+'T12:00:00Z'))/86400000)+1;
+  const dayLabel=date=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',timeZone:'UTC'}).format(new Date(date+'T12:00:00Z'));
+  if(days===1)return {bins,unit:'day'};
+  if(days<=14) {
+   for(let d=first;d<=last;d=shift(d,1))bins.push({start:d,end:d,label:dayLabel(d),count:0});
+   return {bins,unit:'day'};
+  }
+  if(days<=120) {
+   for(let d=first;d<=last;) {
+    const toSunday=(7-new Date(d+'T12:00:00Z').getUTCDay())%7;
+    const stop=[shift(d,toSunday),last].sort()[0];
+    bins.push({start:d,end:stop,label:dayLabel(d),count:0});
+    d=shift(stop,1);
+   }
+   return {bins,unit:'week'};
+  }
+  if(days<=1098) {
+   for(let d=first;d<=last;) {
+    const [year,month]=d.slice(0,7).split('-').map(Number);
+    const stop=[key(new Date(Date.UTC(year,month,0))),last].sort()[0];
+    const label=new Intl.DateTimeFormat('en-GB',{month:'short',year:'2-digit',timeZone:'UTC'}).format(new Date(d+'T12:00:00Z'));
+    bins.push({start:d,end:stop,label,count:0});
+    d=shift(stop,1);
+   }
+   return {bins,unit:'month'};
+  }
+  const firstYear=+first.slice(0,4),lastYear=+last.slice(0,4);
+  const step=Math.max(1,Math.ceil((lastYear-firstYear+1)/36));
+  const isoYear=year=>String(year).padStart(4,'0');
+  for(let year=firstYear;year<=lastYear;year+=step) {
+   const endYear=Math.min(year+step-1,lastYear);
+   bins.push({
+    start:year===firstYear?first:isoYear(year)+'-01-01',
+    end:endYear===lastYear?last:isoYear(endYear)+'-12-31',
+    label:year===endYear?String(year):year+'–'+endYear,count:0
+   });
+  }
+  return {bins,unit:step===1?'year':'year group'};
+ }
+ function summarize(tasks,range,today,catalog={resolve:()=>null},custom=null) {
+  const bounds=period(range,today,custom),inRange=date=>date>=bounds.start&&date<=bounds.end;
   const cohort=tasks.filter(t=>t&&typeof t==='object'&&(!dateValid(t.date)||inRange(t.date)));
   const counts={inbox:0,scheduled:0,completed:0,returned:0};
   const groups=new Map([['work',{id:'work',name:'Work',color:'blue',count:0}],['home',{id:'home',name:'Home',color:'orange',count:0}],['untagged',{id:'untagged',name:'No tag',color:'grey',count:0}]]);
@@ -28,32 +76,62 @@
    if(!groups.has(id))groups.set(id,{id,name:tag.name,color:tag.color,count:0});
    groups.get(id).count++;
   }
-  const bins=[];
-  if(range==='year')for(let i=0;i<12;i++) {
+  let bins=[],unit=range==='year'?'month':range==='month'?'week':'day';
+  if(range==='custom')({bins,unit}=customDensity(bounds));
+  else if(range==='year')for(let i=0;i<12;i++) {
    const start=bounds.start.slice(0,4)+'-'+String(i+1).padStart(2,'0')+'-01';
    bins.push({start,end:key(new Date(Date.UTC(+start.slice(0,4),i+1,0))),label:new Intl.DateTimeFormat('en-GB',{month:'short',timeZone:'UTC'}).format(new Date(start+'T12:00:00Z')),count:0});
-  } else if(range!=='today')for(let start=bounds.start;start<=bounds.end;start=shift(start,range==='week'?1:7)) {
+  } else if(range!=='today'&&range!=='custom')for(let start=bounds.start;start<=bounds.end;start=shift(start,range==='week'?1:7)) {
    const end=range==='week'?start:[shift(start,6),bounds.end].sort()[0];
    const label=range==='week'?new Intl.DateTimeFormat('en-GB',{weekday:'short',timeZone:'UTC'}).format(new Date(start+'T12:00:00Z')):Number(start.slice(-2))+(start===end?'':'–'+Number(end.slice(-2)));
    bins.push({start,end,label,count:0});
   }
   const dated=cohort.filter(t=>dateValid(t.date));
   for(const task of dated){const bin=bins.find(b=>task.date>=b.start&&task.date<=b.end);if(bin)bin.count++;}
-  return {...bounds,total:cohort.length,counts,tags:[...groups.values()],bins,dated:dated.length,undated:cohort.length-dated.length,samples:cohort.filter(t=>t.demo).length};
+  return {...bounds,total:cohort.length,counts,tags:[...groups.values()],bins,unit,dated:dated.length,undated:cohort.length-dated.length,samples:cohort.filter(t=>t.demo).length};
  }
  class Controller {
   constructor(hooks) {
-   this.hooks=hooks;this.range='today';
+   this.hooks=hooks;this.range='today';this.custom=null;
+   const from=document.getElementById('snapshotFromDate'),to=document.getElementById('snapshotToDate');
    document.getElementById('snapshotRanges').addEventListener('click',event=>{
     const button=event.target.closest('button[data-snapshot-range]');if(!button)return;
-    this.range=button.dataset.snapshotRange;this.render();
+    const next=button.dataset.snapshotRange;
+    if(!['today','week','month','year','custom'].includes(next))return;
+    if(next==='custom'&&!this.custom) {
+     // Keep the user's current preset as the starting selection.
+     this.custom=period(this.range,this.hooks.today());
+     from.value=this.custom.start;to.value=this.custom.end;
+    }
+    this.range=next;this.render();
    });
+   const changed=()=>{
+    this.custom={start:from.value,end:to.value};
+    if(this.range==='custom')this.render();
+   };
+   from.addEventListener('change',changed);to.addEventListener('change',changed);
   }
   render() {
-   const $=id=>document.getElementById(id),model=summarize(this.hooks.tasks(),this.range,this.hooks.today(),this.hooks.catalog());
+   const $=id=>document.getElementById(id),isCustom=this.range==='custom';
+   $('snapshotCustomDates').hidden=!isCustom;
+   document.querySelectorAll('[data-snapshot-range]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.snapshotRange===this.range)));
+   const error=$('snapshotCustomError');
+   if(isCustom){
+    const startValid=dateValid(this.custom?.start),endValid=dateValid(this.custom?.end);
+    const ordered=startValid&&endValid&&this.custom.start<=this.custom.end;
+    $('snapshotFromDate').setAttribute('aria-invalid',String(!startValid||!ordered));
+    $('snapshotToDate').setAttribute('aria-invalid',String(!endValid||!ordered));
+    if(!ordered){
+     error.textContent=!startValid||!endValid?'Choose valid From and To dates.':'From must be on or before To.';
+     error.hidden=false;
+     return; // Do not replace the last valid figures with invalid data.
+    }
+   }
+   error.hidden=true;error.textContent='';
+   $('snapshotFromDate').removeAttribute('aria-invalid');$('snapshotToDate').removeAttribute('aria-invalid');
+   const model=summarize(this.hooks.tasks(),this.range,this.hooks.today(),this.hooks.catalog(),this.custom);
    const format=date=>new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(date+'T12:00:00Z'));
    $('snapshotPeriod').textContent=format(model.start)+(model.start===model.end?'':' – '+format(model.end));
-   document.querySelectorAll('[data-snapshot-range]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.snapshotRange===this.range)));
    for(const [name,value] of Object.entries(model.counts))$('snapshot-'+name).textContent=value;
    $('snapshotEmpty').hidden=model.total!==0;
    $('snapshotScope').textContent=model.total+' '+(model.total===1?'task':'tasks')+' · Inbox and undated tasks included'+(model.samples?' · includes samples':'');
@@ -70,8 +148,8 @@
     item.append(label,count);$('snapshotTags').append(item);
    }
    $('snapshotBins').dataset.range=this.range;
-   $('snapshotDensity').hidden=this.range==='today';$('snapshotBins').replaceChildren();
-   $('snapshotDensityLabel').textContent=this.range==='year'?'By month':this.range==='month'?'By week of the month':'By day';
+   $('snapshotDensity').hidden=model.bins.length===0;$('snapshotBins').replaceChildren();
+   $('snapshotDensityLabel').textContent=this.range==='month'?'By week of the month':'By '+model.unit;
    $('snapshotDensityNote').textContent=model.dated+' dated '+(model.dated===1?'task':'tasks')+'; '+model.undated+' undated not plotted. Counts include completed tasks, not estimated hours.';
    const max=Math.max(1,...model.bins.map(b=>b.count));
    for(const bin of model.bins) {
