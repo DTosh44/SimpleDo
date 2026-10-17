@@ -22,7 +22,7 @@ Tasks are saved on this device first. After one successful online load over HTTP
 
 ## Appearance and custom tags
 
-SimpleDo keeps its pure-white canvas, black controls and minimal type, with small, consistent touches of its existing palette throughout: **blue for Planner, orange for Inbox/scan, pink for Today/focus, purple for One Task/voice, and mustard for Snapshot**. Tag colours remain user-defined, and Snapshot bars retain text labels. The Pomodoro bar stays solid pink.
+SimpleDo keeps its pure-white canvas, primarily monochrome controls and minimal type, with small, consistent touches of its existing palette throughout: **blue for Planner, orange for Inbox/scan, pink for Today/focus, purple for One Task/voice, and mustard for Snapshot**. Tag colours remain user-defined, and Snapshot bars retain text labels. The global **New task** button and Inbox add button use orange with dark text to distinguish capturing tasks from the black logo and focus actions; the Today add action has an orange outline. Other buttons stay subdued rather than becoming a collection of competing colour blocks. The Pomodoro bar stays solid pink.
 
 Inbox's header now lines up with **Your days**; the Inbox no longer has an outer card, and tasks continue scrolling independently in their own column.
 
