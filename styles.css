@@ -672,3 +672,43 @@ body[data-active-view=one-task] .day-add {color:var(--purple);}
   .snapshot-date-error {grid-column:1/-1;}
   .snapshot-bins[data-range=custom] {grid-template-columns:repeat(auto-fit,minmax(40px,1fr));}
 }
+
+
+/* Primary capture actions use the existing orange accent.
+   All other actions stay monochrome; pink remains reserved for focus. */
+#newTaskButton {
+  background:var(--orange);
+  border-color:var(--orange);
+  color:var(--ink);
+  box-shadow:0 2px 9px #ef9b2d29;
+}
+#newTaskButton:hover {
+  background:#f7af50;
+  border-color:#f7af50;
+  color:var(--ink);
+}
+#newTaskButton:focus-visible,
+#quickAddForm button[type="submit"]:focus-visible {
+  outline:2px solid var(--ink);
+  outline-offset:3px;
+}
+#quickAddForm button[type="submit"] {
+  background:var(--orange);
+  color:var(--ink);
+  font-weight:700;
+}
+#quickAddForm button[type="submit"]:hover {
+  background:#f7af50;
+  color:var(--ink);
+}
+/* Adding a task within Today is secondary to starting focus on an existing one. */
+#todayAdd {
+  border-color:var(--orange);
+  color:#794309;
+  background:#fff;
+}
+#todayAdd:hover {
+  background:#fff5e8;
+  border-color:var(--orange);
+  color:#663708;
+}
