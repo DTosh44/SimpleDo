@@ -36,6 +36,26 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(inboxAddColour,'rgb(239, 155, 45)');
     const logoColour=await page.locator('.brand-mark').evaluate(el=>getComputedStyle(el).backgroundColor);
     assert.equal(logoColour,'rgb(21, 21, 21)','logo stays black');
+    assert.equal(await page.locator('#saveTaskButton').evaluate(el=>getComputedStyle(el).backgroundColor),
+      'rgb(239, 155, 45)','saving a task is orange even inside its editor');
+    assert.equal(await page.locator('#captureAdd').evaluate(el=>getComputedStyle(el).backgroundColor),
+      'rgb(239, 155, 45)','confirming a captured list is orange');
+    // Accents reflect one stable role, regardless of which page is active.
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(69, 120, 201)','Planner title matches blue navigation');
+    await page.locator('[data-nav=inbox]').click();
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(140, 77, 11)','Inbox title uses legible dark orange');
+    await page.locator('[data-nav=one-task]').click();
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(120, 81, 173)','One Task title matches purple priority');
+    await page.locator('[data-nav=snapshot]').click();
+    const snapshotSelection=await page.locator('[data-snapshot-range=today]').evaluate(el=>{
+      const style=getComputedStyle(el);
+      return {background:style.backgroundColor,colour:style.color,shadow:style.boxShadow};
+    });
+    assert.equal(snapshotSelection.background,'rgb(240, 240, 240)','Snapshot uses a light active range, not a black button');
+    assert.equal(snapshotSelection.colour,'rgb(21, 21, 21)','Snapshot selected range has dark text');
+    assert.doesNotMatch(snapshotSelection.shadow,/224, 196, 77|mustard/,'no mustard underline on selected Snapshot range');
+    assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),'rgb(48, 48, 48)','Snapshot is neutral');
+    await page.locator('[data-nav=planner]').click();
     await settings();
     assert.match(await page.locator('#accountMessage').innerText(),/not configured/);
     const [download] = await Promise.all([page.waitForEvent('download'),page.locator('#exportBackup').click()]);
