@@ -173,6 +173,33 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     }
     await capacityPage.locator('[data-snapshot-range="year"]').click();
     assert.equal(await capacityPage.locator('#snapshotBins li').count(),12);
+    // Custom dates may span multiple calendar years, with inclusive month bins.
+    await capacityPage.locator('[data-snapshot-range="custom"]').click();
+    assert.equal(await capacityPage.locator('#snapshotCustomDates').isVisible(),true);
+    assert.equal(await capacityPage.locator('[data-snapshot-range="custom"]').getAttribute('aria-pressed'),'true');
+    await capacityPage.locator('#snapshotFromDate').fill('2026-04-25');
+    await capacityPage.locator('#snapshotFromDate').dispatchEvent('change');
+    await capacityPage.locator('#snapshotToDate').fill('2027-09-18');
+    await capacityPage.locator('#snapshotToDate').dispatchEvent('change');
+    assert.equal(await capacityPage.locator('#snapshotCustomError').isVisible(),false);
+    assert.match(await capacityPage.locator('#snapshotPeriod').innerText(),/25 Apr 2026/);
+    assert.match(await capacityPage.locator('#snapshotPeriod').innerText(),/18 Sep(?:t)? 2027/);
+    assert.equal(await capacityPage.locator('#snapshotDensityLabel').innerText(),'By month');
+    assert.equal(await capacityPage.locator('#snapshotBins li').count(),18);
+    const validPeriod=await capacityPage.locator('#snapshotPeriod').innerText();
+    await capacityPage.locator('#snapshotToDate').fill('2026-04-24');
+    await capacityPage.locator('#snapshotToDate').dispatchEvent('change');
+    assert.equal(await capacityPage.locator('#snapshotCustomError').isVisible(),true,'backwards dates are rejected');
+    assert.equal(await capacityPage.locator('#snapshotPeriod').innerText(),validPeriod,'invalid dates do not silently change Snapshot');
+    await capacityPage.locator('#snapshotToDate').fill('2027-09-18');
+    await capacityPage.locator('#snapshotToDate').dispatchEvent('change');
+    assert.equal(await capacityPage.locator('#snapshotCustomError').isVisible(),false);
+    await capacityPage.locator('[data-snapshot-range="week"]').click();
+    assert.equal(await capacityPage.locator('#snapshotCustomDates').isVisible(),false);
+    await capacityPage.locator('[data-snapshot-range="custom"]').click();
+    assert.equal(await capacityPage.locator('#snapshotFromDate').inputValue(),'2026-04-25');
+    assert.equal(await capacityPage.locator('#snapshotToDate').inputValue(),'2027-09-18');
+    await capacityPage.locator('[data-snapshot-range="year"]').click();
     const snapshotYear=await capacityPage.evaluate(()=>new Date().getFullYear());
     const fullTasks=Object.values(allTasksBefore.records).filter(r=>!r.deleted&&(!r.task.date||r.task.date.startsWith(snapshotYear+'-'))).length;
     const shown=await capacityPage.locator('#snapshotTags li strong').allTextContents();assert.equal(shown.reduce((sum,n)=>sum+Number(n),0),fullTasks);
@@ -183,6 +210,11 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.evaluate(()=>{window.scrollTo({top:0,behavior:'instant'});return new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));});
     await capacityPage.screenshot({path:'/tmp/simpledo-snapshot-mobile.png'});
     assert.equal(await capacityPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await capacityPage.locator('[data-snapshot-range="custom"]').click();
+    for(const selector of ['#snapshotCustomDates','#snapshotFromDate','#snapshotToDate']) {
+      const rect=await capacityPage.locator(selector).boundingBox();
+      assert.ok(rect&&rect.x>=0&&rect.x+rect.width<=390,selector+' custom picker fits mobile');
+    }
     for(const selector of ['#snapshotRanges','#snapshotBins','[data-nav="snapshot"]']) {
       const box=await capacityPage.locator(selector).boundingBox();assert.ok(box&&box.x>=0&&box.x+box.width<=390,selector+' fits on mobile');
     }
