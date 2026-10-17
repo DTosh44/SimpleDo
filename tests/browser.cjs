@@ -25,7 +25,18 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await page.locator('#restoreDialog').waitFor({state:'visible'});
   };
   try {
-    await page.goto(base); await settings();
+    await page.goto(base);
+    // The prominent capture action stands apart from the black logo and timer buttons.
+    const primaryColour=await page.locator('#newTaskButton').evaluate(el=>{
+      const style=getComputedStyle(el);
+      return {background:style.backgroundColor,foreground:style.color};
+    });
+    assert.deepEqual(primaryColour,{background:'rgb(239, 155, 45)',foreground:'rgb(21, 21, 21)'});
+    const inboxAddColour=await page.locator('#quickAddForm button[type="submit"]').evaluate(el=>getComputedStyle(el).backgroundColor);
+    assert.equal(inboxAddColour,'rgb(239, 155, 45)');
+    const logoColour=await page.locator('.brand-mark').evaluate(el=>getComputedStyle(el).backgroundColor);
+    assert.equal(logoColour,'rgb(21, 21, 21)','logo stays black');
+    await settings();
     assert.match(await page.locator('#accountMessage').innerText(),/not configured/);
     const [download] = await Promise.all([page.waitForEvent('download'),page.locator('#exportBackup').click()]);
     assert.match(download.suggestedFilename(),/^SimpleDo-Backup-\d{4}-\d{2}-\d{2}.json$/);
