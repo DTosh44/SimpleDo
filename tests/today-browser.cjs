@@ -16,6 +16,10 @@ const today='2026-10-16',tomorrow='2026-10-17',task=(id,title,props={})=>({id,ti
   assert.equal(await page.locator('#pageTitle').innerText(),'Planner.');
   assert.equal(await page.locator('.eyebrow,.overline,.sidebar-label,.sidebar-note,.page-footer').count(),0,'no decorative copy remains');
   assert.equal(await page.locator('#timelineTitle').innerText(),'Your days');
+  const firstDayBox=await page.locator('#daysRoot .day-card').first().boundingBox();
+  const inboxAddBox=await page.locator('#quickAddForm').boundingBox();
+  assert.ok(firstDayBox && inboxAddBox && Math.abs(firstDayBox.y-inboxAddBox.y)<=2,
+    'first Planner day should align vertically with Inbox quick-add, not the top search field');
   assert.equal(await page.locator('#inboxTitle').innerText(),'Inbox');
   await page.locator('[data-nav=inbox]').click();
   assert.equal(await page.locator('#pageTitle').innerText(),'Inbox.');
