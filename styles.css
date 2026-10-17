@@ -548,7 +548,15 @@ body[data-active-view=inbox] .eyebrow-line {background:var(--orange);}
 body[data-active-view=today] .eyebrow-line {background:var(--pink);}
 body[data-active-view=one-task] .eyebrow-line {background:var(--purple);}
 body[data-active-view=snapshot] .eyebrow-line {background:var(--colour-snapshot);}
-.day-add {color:var(--colour-capture-ink);}
+.day-add {
+  background:#fff;
+  border-color:var(--colour-capture);
+  color:var(--colour-capture-ink);
+}
+.day-add:focus-visible {
+  outline:2px solid var(--colour-capture-ink);
+  outline-offset:3px;
+}
 .day-card.today .day-add {color:var(--colour-capture-ink);}
 .day-toggle .day-chevron {border-color:#5980c4;}
 body[data-active-view=one-task] .day-card {border-top:2px solid var(--purple);}
