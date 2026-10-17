@@ -50,6 +50,8 @@ body[data-active-view="one-task"] .task-check{width:23px;height:23px}
   --colour-plan: var(--blue);
   --colour-capture: var(--pink);
   --colour-capture-ink: #8e2952; /* readable dark pink on white */
+  --colour-capture-button: #d3316b; /* slightly deeper for accessible white button text */
+  --colour-capture-button-hover: #c72b64;
   --colour-today: var(--orange);
   --colour-today-ink: #8c4d0b; /* readable dark orange on white */
   --colour-priority: var(--purple);
@@ -666,17 +668,18 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
 }
 
 
-/* Pink is the one prominent colour for capture and task-creation actions. */
+/* Filled task actions use a rich pink with accessible white text/icons. */
 #newTaskButton {
-  background:var(--colour-capture);
-  border-color:var(--colour-capture);
-  color:var(--ink);
+  background:var(--colour-capture-button);
+  border-color:var(--colour-capture-button);
+  color:#fff;
   box-shadow:none;
 }
+#newTaskButton span {color:inherit;}
 #newTaskButton:hover {
-  background:#ed6794;
-  border-color:#ed6794;
-  color:var(--ink);
+  background:var(--colour-capture-button-hover);
+  border-color:var(--colour-capture-button-hover);
+  color:#fff;
 }
 #newTaskButton:focus-visible,
 #quickAddForm button[type="submit"]:focus-visible {
@@ -684,13 +687,13 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
   outline-offset:3px;
 }
 #quickAddForm button[type="submit"] {
-  background:var(--colour-capture);
-  color:var(--ink);
+  background:var(--colour-capture-button);
+  color:#fff;
   font-weight:700;
 }
 #quickAddForm button[type="submit"]:hover {
-  background:#ed6794;
-  color:var(--ink);
+  background:var(--colour-capture-button-hover);
+  color:#fff;
 }
 /* Adding a task on the Today page is a quiet secondary action. */
 #todayAdd {
@@ -705,8 +708,13 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
 }
 
 
-/* All page-title punctuation stays black; only the wordmark dot stays pink. */
+/* Bring back the small view-colour full stops, distinct from the branding dot. */
 .full-stop {color:var(--ink);}
+body[data-active-view="planner"] .full-stop {color:var(--colour-plan);}
+body[data-active-view="inbox"] .full-stop {color:var(--colour-capture-ink);}
+body[data-active-view="today"] .full-stop {color:var(--colour-today-ink);}
+body[data-active-view="one-task"] .full-stop {color:var(--colour-priority);}
+body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
 
 /* Purple singles out Main Thing. Up next keeps the warm orange Today cue. */
 .today-feature.main-task::before {background:var(--colour-priority);}
@@ -726,14 +734,14 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
 /* Saving/capturing tasks follows the same pink action as quick-add.
    Other Settings and focus controls stay neutral. */
 #saveTaskButton, #captureAdd, #captureReviewText {
-  background:var(--colour-capture);
-  border-color:var(--colour-capture);
-  color:var(--ink);
+  background:var(--colour-capture-button);
+  border-color:var(--colour-capture-button);
+  color:#fff;
 }
 #saveTaskButton:hover, #captureAdd:hover, #captureReviewText:hover {
-  background:#ed6794;
-  border-color:#ed6794;
-  color:var(--ink);
+  background:var(--colour-capture-button-hover);
+  border-color:var(--colour-capture-button-hover);
+  color:#fff;
 }
 #saveTaskButton:focus-visible, #captureAdd:focus-visible, #captureReviewText:focus-visible {
   outline:2px solid var(--ink);
