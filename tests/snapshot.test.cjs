@@ -44,3 +44,62 @@ test('calendar date boundaries remain stable around DST and leap-day transitions
  const result=S.summarize([{date:'2026-03-29'},{date:'2026-03-30'}],'week','2026-03-29',catalog);assert.equal(result.dated,1);assert.equal(result.end,'2026-03-29');
  const leap=S.summarize([{date:'2028-02-29'}],'month','2028-02-15',catalog);assert.equal(leap.bins.at(-1).label,'29');assert.equal(leap.bins.at(-1).count,1);
 });
+
+test('custom Snapshot uses exact inclusive From and To dates, across years',()=>{
+ const dates={start:'2026-04-25',end:'2027-09-18'};
+ assert.deepEqual(S.period('custom','2026-10-17',dates),dates);
+ assert.deepEqual(S.period('custom','2026-10-17',{start:'2026-02-28',end:'2026-02-28'}),{start:'2026-02-28',end:'2026-02-28'});
+ for(const invalid of [
+  {start:'2027-09-18',end:'2026-04-25'},
+  {start:'2026-02-30',end:'2027-09-18'},
+  {start:'',end:'2027-09-18'},
+  {start:'2026-04-25',end:''}
+ ]) assert.throws(()=>S.period('custom','2026-10-17',invalid),/From|valid/);
+ assert.throws(()=>S.period('custom','2026-10-17'),/valid/);
+});
+
+test('custom Snapshot includes boundary dates, excludes outside dates and keeps undated tasks',()=>{
+ const dates={start:'2026-04-25',end:'2027-09-18'};
+ const tasks=[
+  {id:'before',date:'2026-04-24'},
+  {id:'first',date:'2026-04-25'},
+  {id:'middle',date:'2027-01-01',tagId:'work'},
+  {id:'last',date:'2027-09-18',completed:true},
+  {id:'after',date:'2027-09-19'},
+  {id:'inbox',date:null,rolled:true},
+  {id:'undated-completed',completed:true}
+ ];
+ const before=JSON.stringify(tasks);
+ const view=S.summarize(tasks,'custom','2026-10-17',catalog,dates);
+ assert.deepEqual({start:view.start,end:view.end},dates);
+ assert.equal(view.total,5);
+ assert.deepEqual(view.counts,{inbox:1,scheduled:2,completed:2,returned:1});
+ assert.equal(view.dated,3);
+ assert.equal(view.bins.length,18,'April 2026 to September 2027 is 18 monthly bins');
+ assert.equal(view.unit,'month');
+ assert.deepEqual({start:view.bins[0].start,end:view.bins[0].end},{start:'2026-04-25',end:'2026-04-30'});
+ assert.deepEqual({start:view.bins.at(-1).start,end:view.bins.at(-1).end},{start:'2027-09-01',end:'2027-09-18'});
+ assert.equal(view.bins.reduce((n,b)=>n+b.count,0),view.dated);
+ assert.equal(JSON.stringify(tasks),before,'reading a custom range must not write to tasks');
+});
+
+test('custom Snapshot selects daily, weekly, monthly and annual density based on interval',()=>{
+ const anchor='2026-10-17';
+ const daily=S.summarize([{date:'2026-03-29'},{date:'2026-04-01'}],'custom',anchor,catalog,{start:'2026-03-28',end:'2026-04-02'});
+ assert.equal(daily.unit,'day');assert.equal(daily.bins.length,6);assert.equal(daily.bins.reduce((n,b)=>n+b.count,0),2);
+ const week=S.summarize([{date:'2026-03-29'},{date:'2026-04-01'}],'custom',anchor,catalog,{start:'2026-03-28',end:'2026-05-15'});
+ assert.equal(week.unit,'week');assert.equal(week.bins[0].end,'2026-03-29');
+ assert.equal(week.bins.at(-1).end,'2026-05-15');
+ assert.equal(week.bins.reduce((n,b)=>n+b.count,0),2);
+ const month=S.summarize([{date:'2028-02-29'},{date:'2028-03-01'}],'custom',anchor,catalog,{start:'2027-12-31',end:'2028-04-01'});
+ assert.equal(month.unit,'week','short periods use weeks even across a leap year');
+ assert.equal(month.bins.reduce((n,b)=>n+b.count,0),2);
+ const annual=S.summarize([{date:'2020-01-01'},{date:'2029-09-18'},{date:'2029-09-19'}],'custom',anchor,catalog,{start:'2020-01-01',end:'2029-09-18'});
+ assert.equal(annual.unit,'year');assert.equal(annual.bins.length,10);
+ assert.equal(annual.bins.reduce((n,b)=>n+b.count,0),2);
+ const long=S.summarize([{date:'1980-06-01'},{date:'2020-01-01'}],'custom',anchor,catalog,{start:'1900-01-01',end:'2099-12-31'});
+ assert.equal(long.unit,'year group');assert.ok(long.bins.length<=36);
+ assert.equal(long.bins.reduce((n,b)=>n+b.count,0),2);
+ const single=S.summarize([{date:'2027-09-18'}],'custom',anchor,catalog,{start:'2027-09-18',end:'2027-09-18'});
+ assert.equal(single.bins.length,0);assert.equal(single.counts.scheduled,1);
+});
