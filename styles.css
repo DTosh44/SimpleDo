@@ -761,3 +761,36 @@ body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
   .quick-add-form textarea { font-size:16px; }
   .inbox-import-row { flex-wrap:wrap; }
 }
+
+/* Duplicate detection: visible, readable feedback rather than a short-lived toast only. */
+.duplicate-feedback {
+  margin:6px 0 12px;
+  font-size:12px;
+  line-height:1.5;
+  color:#8e2952;
+  overflow-wrap:anywhere;
+}
+#taskDuplicateFeedback { margin:8px 0 6px; }
+#quickAddFeedback { margin:-8px 0 16px; }
+.duplicate-review-dialog {
+  width:min(560px,calc(100% - 24px));
+  max-height:calc(100dvh - 24px);
+  overflow-y:auto;
+}
+.similar-review-list {
+  max-height:min(340px,45dvh);
+  overflow-y:auto;
+  border-top:1px solid #eee;
+  border-bottom:1px solid #eee;
+  padding:4px 0;
+}
+.similar-review-item {
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:12px 2px;
+}
+.similar-review-item + .similar-review-item {border-top:1px solid #eee;}
+.similar-review-item input {flex:none;width:19px;height:19px;margin:2px 0 0;accent-color:#8e2952;}
+.similar-review-item strong {display:block;font-size:13px;font-weight:650;line-height:1.4;overflow-wrap:anywhere;}
+.similar-review-item small {display:block;color:#666;font-size:12px;line-height:1.5;margin-top:3px;overflow-wrap:anywhere;}
