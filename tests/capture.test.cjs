@@ -40,7 +40,10 @@ test('duplicate assessment distinguishes exact, similar and different unfinished
   ['Board minutes','Board minute','similar'],
   ['Sort garage','Sort kitchen','add'],
   ['Call Jo Randall','Call Jo Roberts','add'],
-  ['Buy milk','Buy silk','add']
+  ['Buy milk','Buy silk','add'],
+  ['Invoice 123','Invoice 124','add'],
+  ['Review figures 2025-09','Review figures 2025-10','add'],
+  ['Campaign Q1','Campaign Q2','add']
  ];
  for(const [oldTitle,newTitle,kind] of examples){
   const result=C.assess([{title:newTitle}],[active(oldTitle)]);
