@@ -1,4 +1,4 @@
-/* Stable single-tag identities. Catalog changes never remove task records. */
+/* Stable multi-tag identities. Catalog changes never remove task records. */
 (function(root){
  'use strict';
  const PALETTE={blue:'#4578c9',orange:'#ef9b2d',pink:'#e3447d',purple:'#7851ad',mustard:'#e0c44d',grey:'#747474'};
@@ -21,9 +21,16 @@
   for(const tag of incoming)if(replace||!Object.hasOwn(next,tag.id))next[tag.id]={tag,version:next[tag.id]?.version||0,dirty:true};
   return next;
  }
+ function taskIds(task={}) {
+  return Array.isArray(task.tagIds)?task.tagIds:(task.tagId?[task.tagId]:[]);
+ }
  function context(task,records={}) {
-  if(task.tagId==='home')return 'outside';if(task.tagId==='work')return 'work';
-  return records[task.tagId]?.tag.context || task.capacityContext || (validId(task.tagId)?'outside':'work');
+  const ids=taskIds(task);
+  if(ids.includes('home'))return 'outside';
+  if(ids.includes('work'))return 'work';
+  if(ids.some(id=>records[id]?.tag.context==='work'))return 'work';
+  if(ids.some(id=>records[id]?.tag.context==='outside'))return 'outside';
+  return task.capacityContext || (ids.length?'outside':'work');
  }
  class Catalog {
   constructor(store){this.store=store;}
@@ -76,6 +83,6 @@
    }finally{if(didChange&&valid())changed();}
   }
  }
- const api={PALETTE,DEFAULTS,validId,validateTag,validateList,restoreRecords,context,Catalog};
+ const api={PALETTE,DEFAULTS,validId,validateTag,validateList,restoreRecords,taskIds,context,Catalog};
  if(typeof module!=='undefined')module.exports=api;else root.SimpleDoTags=api;
 })(globalThis);
