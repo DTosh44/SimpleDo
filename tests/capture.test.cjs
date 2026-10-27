@@ -6,6 +6,16 @@ test('list capture splits bullets and numbers, excludes explicit completed marke
  assert.deepEqual(rows.map(r=>r.text),['Email Simon','Book dentist','Mow lawn','Buy present','Already done','Cancelled','?? unknown']);
  assert.deepEqual(rows.map(r=>r.selected),[true,true,true,false,false,false,true]);assert.equal(rows[6].text,'?? unknown');
 });
+test('Inbox quick paste splits each nonempty line with plain wording and limits',()=>{
+ const expected=['Tape washing machine leak','Sort garage','Jo Randall','Chiltern ideation','Lucy and Nour','Board minutes','New events page live','Vicki fam trip email - meeting with objectives','Itineraries page - how to build more every day - vw','Membership brochure briefed into Mikey','Confirmation Statement - TC Group - Jo Roberts'];
+ assert.deepEqual(C.quickLines('\n'+expected.join('\r\n')+'\n  \n'),expected);
+ assert.deepEqual(C.selected(C.quickLines(expected.join('\n')).map(text=>({text,selected:true}))).titles,expected);
+ assert.deepEqual(C.quickLines('Single task'),['Single task']);
+ assert.deepEqual(C.quickLines('  First  \rSecond\n\n Third\n'),['First','Second','Third']);
+ assert.throws(()=>C.quickLines('Task\n'.repeat(101)),/100 tasks/);
+ assert.throws(()=>C.quickLines('x'.repeat(181)),/180 characters/);
+ assert.throws(()=>C.quickLines('x'.repeat(30001)),/100 tasks/);
+});
 test('uncertain OCR and missing confidence start unselected; oversized titles need correction',()=>{
  const rows=C.recognized([{text:'• Read letter',confidence:.94},{text:'1. Unclear name',confidence:.7},{text:'No score'},{text:'x'.repeat(181),confidence:.99},{text:'☑ Done',confidence:.99}]);
  assert.deepEqual(rows.map(r=>r.selected),[true,false,false,false,false]);assert.equal(rows[1].check,true);rows[1].selected=true;rows[1].text='Corrected name';assert.deepEqual(C.selected(rows).titles,['Read letter','Corrected name']);

@@ -8,7 +8,7 @@
   <title>SimpleDo</title>
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=27">
+  <link rel="stylesheet" href="./styles.css?v=28">
   <script src="./tags.js?v=14" defer></script>
   <script src="./tag-ui.js?v=18" defer></script>
   <script src="./capacity.js?v=13" defer></script>
@@ -19,10 +19,10 @@
   <script src="./calendar.js?v=13" defer></script>
   <script src="./planning.js?v=13" defer></script>
   <script src="./snapshot.js?v=15" defer></script>
-  <script src="./capture.js?v=15" defer></script>
+  <script src="./capture.js?v=16" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=19" defer></script>
+  <script src="./app.js?v=20" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -88,15 +88,15 @@
               <div><div class="section-title-row"><h2 id="inboxTitle">Inbox</h2><span class="count-tag" id="inboxCount">0</span></div><p class="section-intro">A place for everything that isn’t ready for a date yet.</p></div>
             </div>
             <form id="quickAddForm" class="quick-add-form">
-              <label class="sr-only" for="quickTaskInput">New task for Inbox</label>
-              <input id="quickTaskInput" type="text" placeholder="What’s on your mind?" maxlength="180" autocomplete="off" required>
+              <label class="sr-only" for="quickTaskInput">Add tasks to Inbox, one task per line</label>
+              <textarea id="quickTaskInput" rows="1" placeholder="Add a task or paste a list…" maxlength="30000" autocomplete="off" aria-describedby="quickAddHint" required></textarea>
               <button type="button" class="capture-icon" id="captureSpeak" aria-label="Speak a task" title="Speak a task"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg></button>
               <button type="button" class="capture-icon" id="captureScan" aria-label="Scan a list" title="Scan a list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v14H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
               <button type="submit" aria-label="Add task to Inbox">＋</button>
             </form>
             <div class="inbox-import-row">
-              <span class="inbox-import-hint">Have an existing task list?</span>
-              <button type="button" class="inbox-import-button" id="importTasksButton" aria-label="Import tasks into your Inbox from a file">↓ Import tasks</button>
+              <span class="inbox-import-hint" id="quickAddHint" aria-live="polite">Paste a list — one task per line</span>
+              <button type="button" class="inbox-import-button" id="importTasksButton" aria-label="Import tasks from a TXT, Markdown or JSON file into your Inbox">↓ Import .txt / .md / .json</button>
               <input id="importTasksFile" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
             </div>
             <div id="inboxTasks" class="task-stack" tabindex="0" role="region" aria-label="Inbox tasks — scroll independently"></div>

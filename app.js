@@ -1112,14 +1112,40 @@
     document.querySelectorAll("[data-nav]").forEach((button) =>
       button.addEventListener("click", () => setView(button.dataset.nav))
     );
-    try { $("quickTaskInput").value = sessionStorage.getItem("simpledo.typedDraft.v1") || ""; } catch (_) {}
-    $("quickTaskInput").addEventListener("input", () => { try { sessionStorage.setItem("simpledo.typedDraft.v1", $("quickTaskInput").value); } catch (_) {} });
-    $("quickAddForm").addEventListener("submit", (event) => {
+    const quickField = $("quickTaskInput"), quickForm = $("quickAddForm");
+    const quickSubmit = quickForm.querySelector('button[type="submit"]');
+    function updateQuickField() {
+      const count = quickField.value.split(/\r\n|\n|\r/).filter(line => line.trim()).length;
+      quickField.style.height = "auto";
+      quickField.style.height = Math.min(160, Math.max(44, quickField.scrollHeight)) + "px";
+      quickSubmit.setAttribute("aria-label", count > 1 ? "Add " + count + " tasks to Inbox" : "Add task to Inbox");
+      const hint = count > 1 ? count + " tasks ready — press + to add them." : "Paste a list — one task per line";
+      if ($("quickAddHint").textContent !== hint) $("quickAddHint").textContent = hint;
+    }
+    try { quickField.value = sessionStorage.getItem("simpledo.typedDraft.v1") || ""; } catch (_) {}
+    updateQuickField();
+    quickField.addEventListener("input", () => {
+      try { sessionStorage.setItem("simpledo.typedDraft.v1", quickField.value); } catch (_) {}
+      updateQuickField();
+    });
+    quickField.addEventListener("keydown", (event) => {
+      // Enter keeps single-task capture fast. Shift+Enter inserts a line break.
+      if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        quickForm.requestSubmit();
+      }
+    });
+    quickForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      const field = $("quickTaskInput");
       try {
-        const result = captureTasks([{text:field.value,selected:true}], '');
-        field.value = ""; try { sessionStorage.removeItem("simpledo.typedDraft.v1"); } catch (_) {} field.focus(); notify(result);
+        const titles = SimpleDoCapture.quickLines(quickField.value);
+        if (!titles.length) { notify("Write a task or paste a list."); quickField.focus(); return; }
+        const result = captureTasks(titles.map(text => ({text, selected:true})), "");
+        quickField.value = "";
+        try { sessionStorage.removeItem("simpledo.typedDraft.v1"); } catch (_) {}
+        updateQuickField();
+        quickField.focus();
+        notify(result);
       } catch (error) { notify(error.message); }
     });
     els.taskDate.addEventListener("change", updateDateSelector);

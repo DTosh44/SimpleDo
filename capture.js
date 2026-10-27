@@ -10,6 +10,7 @@
   const low=confidence===null||confidence<0.85;
   return {text,selected:!done&&!low&&text.length<=MAX_TITLE,check:low||text.length>MAX_TITLE,done};
  }
+ function quickLines(text){if(typeof text!=='string'||text.length>30000)throw Error('Paste a list of up to 100 tasks.');const lines=text.split(/\r\n|\n|\r/).map(line=>line.trim()).filter(Boolean);if(lines.length>MAX_ROWS)throw Error('Add up to 100 tasks at a time.');if(lines.some(line=>line.length>MAX_TITLE))throw Error('Each task must be 180 characters or fewer. Shorten long lines first.');return lines;}
  function parse(text){if(typeof text!=='string'||text.length>30000)throw Error('Paste a list of up to 100 tasks.');const rows=text.split(/\r?\n/).filter(t=>t.trim()).map(t=>row(t,1)).filter(r=>r.text);if(rows.length>MAX_ROWS)throw Error('Review up to 100 tasks at a time.');return rows;}
  function recognized(lines){if(!Array.isArray(lines)||lines.length>MAX_ROWS)throw Error('Recognition returned too many items. Try a smaller list.');return lines.map(l=>{if(!l||typeof l.text!=='string'||l.text.length>2000)throw Error('Recognition returned invalid text.');return row(l.text,Number.isFinite(l.confidence)?l.confidence:null);}).filter(r=>r.text);}
  function selected(rows,existing=[]){
@@ -45,5 +46,5 @@
   stop(){try{this.recognition?.stop();if(this.recognition)this.stopTimer=this.scope.setTimeout?.(()=>this.cancel(),5000);}catch(_){this.cancel();}}
   cancel(){this.clearTimers();this.generation++;const r=this.recognition;this.recognition=null;if(r){r.onstart=r.onresult=r.onerror=r.onend=null;try{r.abort();}catch(_){}}this.events.state(false);}
  }
- return {MAX_ROWS,key,parse,recognized,selected,validateFile,image,Speech,speechError};
+ return {MAX_ROWS,key,quickLines,parse,recognized,selected,validateFile,image,Speech,speechError};
 });
