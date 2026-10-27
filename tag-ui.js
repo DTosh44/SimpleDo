@@ -1,13 +1,13 @@
+/* Multiple tag chips; legacy single-tag assignments continue to render. */
 (function(root){
  'use strict';
  const $=id=>document.getElementById(id),T=root.SimpleDoTags;
  class Controller {
   constructor(catalog,hooks) {
-   this.catalog=catalog;this.hooks=hooks;this.filter='';
+   this.catalog=catalog;this.hooks=hooks;this.filter='';this.selected=new Set();
    this.fillColors();this.refresh();
    $('tagFilter').onchange=()=>{this.filter=$('tagFilter').value;this.hooks.changed();};
    $('customTagChoice').onchange=()=>this.editChoice();
-   $('taskTag').onchange=()=>this.updateTaskSelection();
    $('tagForm').onsubmit=event=>{
     event.preventDefault();
     try {
@@ -33,8 +33,7 @@
     swatch.onclick=()=>{$('tagColor').value=name;this.updateColourSelection();};
     swatches.append(swatch);
    }
-   $('tagColor').onchange=()=>this.updateColourSelection();
-   this.updateColourSelection();
+   $('tagColor').onchange=()=>this.updateColourSelection();this.updateColourSelection();
   }
   updateColourSelection() {
    const selected=$('tagColor').value;
@@ -43,41 +42,74 @@
     button.setAttribute('aria-pressed',String(button.dataset.color===selected));
    }
   }
-  updateTaskSelection() {
-   const tag=this.catalog.resolve($('taskTag').value),dot=$('taskTagDot');
-   dot.hidden=!tag;dot.style.backgroundColor=tag?T.PALETTE[tag.color]||T.PALETTE.grey:'';
-  }
   saved(message){$('tagError').textContent=message;this.hooks.saved();this.hooks.changed();}
   options(select,tags,first) {
    select.replaceChildren();const option=document.createElement('option');option.value='';option.textContent=first;select.append(option);
    for(const tag of tags){const option=document.createElement('option');option.value=tag.id;option.textContent=tag.name;select.append(option);}
   }
+  tagsInUse() {
+   const known=this.catalog.list(),knownIds=new Set(known.map(t=>t.id));
+   const missing=[...new Set([...this.hooks.tasks().flatMap(t=>T.taskIds(t)),...this.selected])]
+    .filter(id=>!knownIds.has(id))
+    .map(id=>this.catalog.resolve(id)||{id,name:'Removed tag',color:'grey',unavailable:true});
+   return [...known,...missing];
+  }
   refresh() {
-   const current=$('taskTag').value,editing=$('customTagChoice').value;
-   const tags=this.catalog.list(),unknown=[...new Set(this.hooks.tasks().map(t=>t.tagId).filter(id=>id&&!this.catalog.records()[id]&&!T.DEFAULTS.some(t=>t.id===id)))].map(id=>this.catalog.resolve(id));
-   this.options($('tagFilter'),[...tags,...unknown],'All tags');
-   if(![...$('tagFilter').options].some(o=>o.value===this.filter))this.filter='';$('tagFilter').value=this.filter;
-   this.options($('taskTag'),[...tags,...unknown],'No tag');
-   this.keepMissingChoice(current);$('taskTag').value=current;this.updateTaskSelection();
+   const editing=$('customTagChoice').value,tags=this.catalog.list(),available=this.tagsInUse();
+   this.options($('tagFilter'),available,'All tags');
+   if(![...$('tagFilter').options].some(o=>o.value===this.filter))this.filter='';
+   $('tagFilter').value=this.filter;
+   const choices=$('taskTags');choices.replaceChildren();
+   for(const tag of available) {
+    const label=document.createElement('label');label.className='task-tag-choice';
+    const input=document.createElement('input');
+    input.type='checkbox';input.dataset.tagId=tag.id;input.checked=this.selected.has(tag.id);
+    input.disabled=Boolean(tag.unavailable&&!input.checked);
+    input.setAttribute('aria-label',tag.name);
+    const dot=document.createElement('span');dot.className='tag-dot';dot.style.backgroundColor=T.PALETTE[tag.color]||T.PALETTE.grey;dot.setAttribute('aria-hidden','true');
+    const name=document.createElement('span');name.textContent=tag.name;
+    label.append(input,dot,name);label.classList.toggle('is-selected',input.checked);
+    input.onchange=()=>{
+     if(input.checked) {
+      if(tag.id==='work')this.selected.delete('home');
+      if(tag.id==='home')this.selected.delete('work');
+      this.selected.add(tag.id);
+     } else this.selected.delete(tag.id);
+     this.paintChoices();this.hooks.selectionChanged?.();
+    };
+    choices.append(label);
+   }
    this.options($('customTagChoice'),tags.filter(t=>T.validId(t.id)),'Create a tag');
-   $('customTagChoice').value=[...$('customTagChoice').options].some(o=>o.value===editing)?editing:'';if(!document.activeElement?.closest('#tagForm'))this.editChoice();
+   $('customTagChoice').value=[...$('customTagChoice').options].some(o=>o.value===editing)?editing:'';
+   if(!document.activeElement?.closest('#tagForm'))this.editChoice();
   }
-  keepMissingChoice(id) {
-   if(!id||[...$('taskTag').options].some(o=>o.value===id))return;
-   const option=document.createElement('option');option.value=id;option.textContent=this.catalog.resolve(id)?.name||'Removed tag (choose No tag to clear)';$('taskTag').append(option);
+  paintChoices(){
+   for(const input of $('taskTags').querySelectorAll('input[type=checkbox]')){
+    input.checked=this.selected.has(input.dataset.tagId);
+    input.closest('label').classList.toggle('is-selected',input.checked);
+   }
   }
-  open(task) {this.keepMissingChoice(task?.tagId);$('taskTag').value=task?.tagId||'';this.updateTaskSelection();}
+  open(task){this.selected=new Set(T.taskIds(task||{}));this.refresh();}
+  selection(){return [...this.selected];}
+  selectTag(id){if(!id)return;this.selected.add(id);this.refresh();this.hooks.selectionChanged?.();}
+  focus(){($('taskTags').querySelector('input:not([disabled])')||$('createTagFromTask')).focus();}
   editChoice() {
    const tag=this.catalog.resolve($('customTagChoice').value);
    $('tagName').value=tag?.name||'';$('tagColor').value=tag?.color||'purple';$('tagContext').value=tag?.context||'outside';
    $('deleteCustomTag').hidden=!tag;this.updateColourSelection();
   }
-  matches(task){return !this.filter||(task.tagId===this.filter&&this.catalog.resolve(task.tagId)!==null);}
-  context(id){return this.catalog.context({tagId:id});}
-  badge(task) {
-   const tag=this.catalog.resolve(task.tagId);if(!tag)return null;
-   const badge=document.createElement('span');badge.className='task-tag';
-   const dot=document.createElement('span');dot.className='tag-dot';dot.style.backgroundColor=T.PALETTE[tag.color];dot.setAttribute('aria-hidden','true');badge.append(dot,document.createTextNode(tag.name));return badge;
+  matches(task){return !this.filter||T.taskIds(task).includes(this.filter);}
+  context(ids){return this.catalog.context({tagIds:ids||[]});}
+  badge(task){
+   const visible=T.taskIds(task).map(id=>this.catalog.resolve(id)).filter(Boolean);
+   if(!visible.length)return null;
+   const wrap=document.createElement('span');wrap.className='task-tags';
+   for(const tag of visible){
+    const badge=document.createElement('span');badge.className='task-tag';
+    const dot=document.createElement('span');dot.className='tag-dot';dot.style.backgroundColor=T.PALETTE[tag.color]||T.PALETTE.grey;
+    dot.setAttribute('aria-hidden','true');badge.append(dot,document.createTextNode(tag.name));wrap.append(badge);
+   }
+   return wrap;
   }
  }
  root.SimpleDoTagUI={Controller};
