@@ -16,6 +16,22 @@ const server=http.createServer((req,res)=>{const file=path.join(root,decodeURICo
   await page.evaluate(()=>{const original=Storage.prototype.setItem;window.restoreCaptureStorage=()=>Storage.prototype.setItem=original;Storage.prototype.setItem=function(k,v){if(k==='simpledo.captureDraft.v1')throw Error('session full');return original.call(this,k,v);};});await page.locator('#captureText').fill('Memory draft');await page.locator('#captureClose').click();await page.locator('#captureSpeak').click();assert.equal(await page.locator('#captureText').inputValue(),'Memory draft');await page.evaluate(()=>restoreCaptureStorage());
   await page.locator('#captureText').fill('Book dentist\nMow lawn\nMow lawn\n[x] Already finished');await page.locator('#captureReviewText').click();assert.equal(await page.locator('.capture-row').count(),4);
   await page.locator('#captureTag').selectOption('home');await page.locator('#captureAdd').click();await page.evaluate(()=>testCapture.add());assert.equal((await live()).length,3);assert.equal((await live()).filter(t=>t.tagId==='home'&&t.capacityContext==='outside').length,2);
+  // Voice/text capture follows the same near-match warning and safe default.
+  await page.locator('#captureSpeak').click();
+  await page.locator('#captureText').fill('Book dentists');
+  await page.locator('#captureReviewText').click();
+  await page.locator('#captureAdd').click();
+  assert.equal(await page.locator('#similarTaskDialog').isVisible(),true);
+  assert.match(await page.locator('#similarTaskRows').innerText(),/Book dentist/);
+  await page.locator('#similarTaskConfirm').click();
+  assert.equal((await live()).some(t=>t.title==='Book dentists'),false);
+  await page.locator('#captureSpeak').click();
+  await page.locator('#captureText').fill('Book dentists');
+  await page.locator('#captureReviewText').click();
+  await page.locator('#captureAdd').click();
+  await page.getByRole('checkbox',{name:'Add anyway: Book dentists'}).check();
+  await page.locator('#similarTaskConfirm').click();
+  assert.equal((await live()).filter(t=>t.title==='Book dentists').length,1);
   await page.locator('#captureScan').click();assert.match(await page.locator('#captureScanHint').innerText(),/configured service/);assert.equal(await page.locator('#capturePhoto').isDisabled(),true);await page.locator('#captureCancel').click();
   // A real browser running a fake native recognizer verifies interaction, not microphone compatibility.
   const installSpeech=()=>{window.webkitSpeechRecognition=class{constructor(){window.testRecognition=this;}start(){this.onstart?.();}stop(){this.onend?.();}abort(){this.aborted=true;}};};await page.addInitScript(installSpeech);await page.evaluate(installSpeech);
