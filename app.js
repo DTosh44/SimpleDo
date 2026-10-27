@@ -157,22 +157,133 @@
     }
   }
 
-  function captureTasks(rows, tagId) {
-    if (!storageReady || saveFailed) throw Error("Storage is unavailable. Your capture is still here. Resolve the save error in Settings first.");
-    const {titles, duplicates} = SimpleDoCapture.selected(rows, tasks);
-    if (!titles.length) {
-      if (duplicates) return "Already in your unfinished tasks. No duplicates added.";
-      throw Error("Select at least one task to add.");
+  // Similar matches are suggestions, never automatic merges or deletions.
+  // The dialog displays only flagged lines; definite duplicates are skipped.
+  function reviewSimilar(assessment, onConfirm, onCancel = () => {}) {
+    const dialog = $("similarTaskDialog"), list = $("similarTaskRows");
+    const selected = new Set(), count = n => n + " task" + (n === 1 ? "" : "s");
+    list.replaceChildren();
+    const n = assessment.similar.length, fresh = assessment.add.length;
+    $("similarTaskIntro").textContent =
+      count(n) + " look similar to unfinished tasks. " +
+      (fresh ? count(fresh) + " can be added without changes. " : "") +
+      "Tick Add anyway only for tasks that really are different.";
+    $("similarTaskExact").hidden = assessment.exact.length === 0;
+    $("similarTaskExact").textContent = assessment.exact.length
+      ? count(assessment.exact.length) + " already match exactly and will be skipped."
+      : "";
+    $("similarTaskError").textContent = "";
+    $("similarTaskError").hidden = true;
+    const confirmButton = $("similarTaskConfirm");
+    function labelConfirm() {
+      const adding = fresh + selected.size;
+      confirmButton.textContent = adding
+        ? "Add " + count(adding) + " (skip the rest)"
+        : "Skip similar tasks";
     }
+    for (const item of assessment.similar) {
+      const label = document.createElement("label");
+      label.className = "similar-review-item";
+      const check = document.createElement("input");
+      check.type = "checkbox";
+      check.setAttribute("aria-label", "Add anyway: " + item.row.title);
+      check.onchange = () => {
+        if (check.checked) selected.add(item.index); else selected.delete(item.index);
+        labelConfirm();
+      };
+      const content = document.createElement("span"), title = document.createElement("strong");
+      title.textContent = "Add anyway: " + item.row.title;
+      const match = document.createElement("small");
+      match.textContent = "Similar to " + (item.match.source === "existing" ? "existing task" : "another line in this list") +
+        ': “' + item.match.title + '”';
+      content.append(title, match);
+      label.append(check, content);
+      list.append(label);
+    }
+    labelConfirm();
+    let finished = false;
+    const close = () => { if (dialog.open) dialog.close(); };
+    const cancel = () => { if (finished) return; finished = true; close(); onCancel(); };
+    $("similarTaskCancel").onclick = cancel;
+    $("similarTaskClose").onclick = cancel;
+    dialog.oncancel = event => { event.preventDefault(); cancel(); };
+    confirmButton.onclick = () => {
+      if (finished) return;
+      finished = true;
+      close();
+      onConfirm(new Set(selected));
+    };
+    dialog.showModal();
+    (list.querySelector("input") || confirmButton).focus();
+  }
+
+  function additionMessage(added, assessment, chosen, source) {
+    const dupes = assessment.exact.length;
+    const skipped = assessment.similar.filter(item => !chosen?.has(item.index)).length;
+    const noun = n => n + " task" + (n === 1 ? "" : "s");
+    let message = added
+      ? (source === "import" ? "Imported " : "Added ") + noun(added) + " to Inbox."
+      : "No tasks added.";
+    if (dupes) {
+      const example = assessment.exact[0].match.title;
+      message += " " + noun(dupes) + ' already exist and were skipped (e.g. “' + example + '”).';
+      if (!added && !skipped) message += " No duplicates added.";
+    }
+    if (skipped) message += " " + noun(skipped) + " with similar names skipped.";
+    if (tagUI?.filter && added) message += " Choose All tags to see every task.";
+    return message;
+  }
+
+  // Returns null when a similarity-review choice is outstanding; otherwise a
+  // result message. The caller keeps the draft until the write actually succeeds.
+  function addIncoming(rows, tagId = "", onFinish = () => {}, approved = null, source = "inbox") {
+    if (!storageReady || saveFailed)
+      throw Error("Storage is unavailable. Your task list is still here. Resolve the save error in Settings first.");
+    if (!Array.isArray(rows) || rows.length > 2000) throw Error("Add no more than 2,000 tasks at a time.");
+    const selectedRows = rows.filter(row => row && row.selected !== false).map(row => ({
+      title: typeof row.text === "string" ? row.text : row.title,
+      notes: typeof row.notes === "string" ? row.notes : ""
+    }));
+    if (!selectedRows.length) throw Error("Select at least one task to add.");
     const tag = tagId ? tagCatalog?.resolve(tagId) : null;
     if (tagId && (!tag || tag.unavailable)) throw Error("This tag is no longer available. Choose another tag or No tag.");
-    const previous = tasks, previousState = store.state;
-    const additions = titles.map(title => ({id:makeId(), title, notes:"", date:null, completed:false, main:false,
-      rolled:false, demo:false, createdAt:new Date().toISOString(), ...(tag ? {tagId:tag.id, capacityContext:tagCatalog.context({tagId:tag.id})} : {})}));
+    const assessment = SimpleDoCapture.assess(selectedRows, tasks);
+    if (assessment.similar.length && approved === null) {
+      reviewSimilar(assessment, chosen => {
+        try {
+          const result = addIncoming(rows, tagId, onFinish, chosen, source);
+          if (result !== null) onFinish(result);
+        } catch (error) {
+          if ($("captureDialog").open) $("captureMessage").textContent = error.message;
+          else notify(error.message);
+        }
+      });
+      return null;
+    }
+    const permitted = [...assessment.add, ...assessment.similar.filter(item => approved?.has(item.index))]
+      .sort((a, b) => a.index - b.index);
+    if (!permitted.length) return additionMessage(0, assessment, approved, source);
+    const before = tasks, beforeState = store.state, timestamp = Date.now();
+    const additions = permitted.map((item, index) => ({
+      id: makeId(), title: item.row.title, notes: item.row.notes || "", date: null,
+      completed: false, main: false, rolled: false, demo: false,
+      createdAt: new Date(timestamp + index).toISOString(),
+      ...(tag ? {tagId:tag.id,capacityContext:tagCatalog.context({tagId:tag.id})} : {})
+    }));
     tasks = [...tasks, ...additions];
-    if (!persist()) { tasks = previous; store.state = previousState; render(); throw Error("Could not save. Your capture is still here; free device storage, then reload and retry."); }
+    if (!persist()) {
+      tasks = before; store.state = beforeState; render();
+      throw Error("Could not save. Your draft is still here; free device storage, then reload and retry.");
+    }
     render();
-    return `${titles.length === 1 ? "Task" : titles.length + " tasks"} added to Inbox.${duplicates ? " " + duplicates + " repeated items skipped." : ""}${tagUI?.filter ? " Choose All tags to see every task." : ""}`;
+    return additionMessage(additions.length, assessment, approved, source);
+  }
+
+  function captureTasks(rows, tagId) {
+    return addIncoming(rows, tagId, message => {
+      capture.close(true);
+      notify(message);
+    });
   }
 
   function rollover() {
@@ -504,6 +615,8 @@
     dialogOpener = document.activeElement;
     $("dialogHeading").textContent = task ? "Edit task" : "New task";
     els.taskTitle.value = task ? task.title : "";
+    $("taskDuplicateFeedback").hidden = true;
+    $("taskDuplicateFeedback").textContent = "";
     els.taskNotes.value = task ? task.notes : "";
     els.taskMain.checked = task ? task.main : false;
     tagUI?.open(task);
@@ -552,8 +665,8 @@
     }
   }
 
-  function addOrUpdateTask(event) {
-    event.preventDefault();
+  function addOrUpdateTask(event, allowSimilar = false) {
+    event?.preventDefault();
     const title = els.taskTitle.value.trim();
     if (!title) {
       els.taskTitle.focus();
@@ -566,6 +679,29 @@
       notify("Choose today or a future day.");
       return;
     }
+    // Existing tasks can be edited in place without re-warning on their own title.
+    // A newly created title, or a changed title, must pass duplicate checks.
+    if (!editingId || SimpleDoCapture.key(title) !== SimpleDoCapture.key(editingSnapshot?.title || "")) {
+      const checked = SimpleDoCapture.assess([{title}], tasks, editingId);
+      if (checked.exact.length) {
+        const match = checked.exact[0].match.title;
+        $("taskDuplicateFeedback").textContent = 'Already on your list: “' + match + '”. No duplicate task added.';
+        $("taskDuplicateFeedback").hidden = false;
+        els.taskTitle.focus();
+        return;
+      }
+      if (checked.similar.length && !allowSimilar) {
+        reviewSimilar(checked, chosen => {
+          if (chosen.has(0)) addOrUpdateTask(null, true);
+          else {
+            $("taskDuplicateFeedback").textContent = 'Task not added. A similar task exists: “' + checked.similar[0].match.title + '”.';
+            $("taskDuplicateFeedback").hidden = false;
+          }
+        });
+        return;
+      }
+    }
+    $("taskDuplicateFeedback").hidden = true;
     let task = editingId ? tasks.find((t) => t.id === editingId) : null;
     if (editingSnapshot && !SimpleDoData.same(task, editingSnapshot)) {
       task = { ...editingSnapshot, id: makeId(), conflictOf: editingId, recoveredAt: new Date().toISOString() };
@@ -727,7 +863,6 @@
   async function importTasksFromFile(event) {
     const field = event.currentTarget;
     const file = field.files && field.files[0];
-    // Reset first: selecting the same file again should still trigger change.
     field.value = "";
     if (!file) return;
     if (file.size > 2_000_000) {
@@ -736,42 +871,10 @@
     }
     try {
       const rows = readImportRows(await file.text(), file.name);
-      if (!rows.length) {
-        notify("No tasks found in that file.");
-        return;
-      }
-      const known = new Set(tasks.map((t) => t.title.trim().toLocaleLowerCase()));
-      const timestamp = Date.now();
-      let imported = 0;
-      let duplicates = 0;
-      for (const row of rows) {
-        const key = row.title.trim().toLocaleLowerCase();
-        if (known.has(key)) {
-          duplicates++;
-          continue;
-        }
-        known.add(key);
-        tasks.push({
-          id: makeId(),
-          title: row.title,
-          notes: row.notes,
-          date: null,
-          completed: false,
-          main: false,
-          rolled: false,
-          demo: false,
-          createdAt: new Date(timestamp + imported).toISOString()
-        });
-        imported++;
-      }
-      if (imported) {
-        persist();
-        setView("inbox");
-      }
-      notify(imported
-        ? "Imported " + imported + " Inbox " + (imported === 1 ? "task" : "tasks") +
-          (duplicates ? " (" + duplicates + " already existed)." : ".")
-        : "No new tasks to add — they're already in SimpleDo.");
+      if (!rows.length) { notify("No tasks found in that file."); return; }
+      const finish = message => { setView("inbox"); notify(message); };
+      const result = addIncoming(rows, "", finish, null, "import");
+      if (result !== null) finish(result);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Unable to import this file.");
     }
@@ -1126,6 +1229,8 @@
     updateQuickField();
     quickField.addEventListener("input", () => {
       try { sessionStorage.setItem("simpledo.typedDraft.v1", quickField.value); } catch (_) {}
+      $("quickAddFeedback").hidden = true;
+      $("quickAddFeedback").textContent = "";
       updateQuickField();
     });
     quickField.addEventListener("keydown", (event) => {
@@ -1135,18 +1240,28 @@
         quickForm.requestSubmit();
       }
     });
+    const finishQuickAdd = message => {
+      quickField.value = "";
+      try { sessionStorage.removeItem("simpledo.typedDraft.v1"); } catch (_) {}
+      updateQuickField();
+      const feedback = $("quickAddFeedback");
+      feedback.textContent = message;
+      feedback.hidden = !/skipped|duplicate|already exist|similar/i.test(message);
+      quickField.focus();
+      notify(message);
+    };
     quickForm.addEventListener("submit", (event) => {
       event.preventDefault();
       try {
         const titles = SimpleDoCapture.quickLines(quickField.value);
         if (!titles.length) { notify("Write a task or paste a list."); quickField.focus(); return; }
-        const result = captureTasks(titles.map(text => ({text, selected:true})), "");
-        quickField.value = "";
-        try { sessionStorage.removeItem("simpledo.typedDraft.v1"); } catch (_) {}
-        updateQuickField();
-        quickField.focus();
-        notify(result);
+        const result = addIncoming(titles.map(title => ({title})), "", finishQuickAdd);
+        if (result !== null) finishQuickAdd(result);
       } catch (error) { notify(error.message); }
+    });
+    els.taskTitle.addEventListener("input", () => {
+      $("taskDuplicateFeedback").hidden = true;
+      $("taskDuplicateFeedback").textContent = "";
     });
     els.taskDate.addEventListener("change", updateDateSelector);
     els.taskForm.addEventListener("submit", addOrUpdateTask);
