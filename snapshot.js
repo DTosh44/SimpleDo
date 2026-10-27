@@ -1,6 +1,7 @@
 /* Read-only projections of current tasks. Dates describe schedules, not activity history. */
 (function(root){
  'use strict';
+ const T=typeof module!=='undefined'?require('./tags.js'):root.SimpleDoTags;
  const dateValid=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
  const key=date=>date.toISOString().slice(0,10);
  const shift=(value,days)=>{const d=new Date(value+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+days);return key(d);};
@@ -70,11 +71,16 @@
    if(task.completed)counts.completed++;
    else if(dated)counts.scheduled++;
    else {counts.inbox++;if(task.rolled)counts.returned++;}
-   let tag=task.tagId?catalog.resolve(task.tagId):null;
-   if(tag?.unavailable)tag={id:'unavailable',name:'Tag unavailable',color:'grey'};
-   const id=tag?.id||'untagged';
-   if(!groups.has(id))groups.set(id,{id,name:tag.name,color:tag.color,count:0});
-   groups.get(id).count++;
+   const ids=T.taskIds(task);
+   const resolved=ids.length?ids.map(id=>catalog.resolve(id)):[null];
+   const counted=new Set();
+   for(let tag of resolved) {
+    if(tag?.unavailable)tag={id:'unavailable',name:'Tag unavailable',color:'grey'};
+    const id=tag?.id||'untagged';
+    if(counted.has(id))continue;counted.add(id);
+    if(!groups.has(id))groups.set(id,{id,name:tag.name,color:tag.color,count:0});
+    groups.get(id).count++;
+   }
   }
   let bins=[],unit=range==='year'?'month':range==='month'?'week':'day';
   if(range==='custom')({bins,unit}=customDensity(bounds));
@@ -88,7 +94,7 @@
   }
   const dated=cohort.filter(t=>dateValid(t.date));
   for(const task of dated){const bin=bins.find(b=>task.date>=b.start&&task.date<=b.end);if(bin)bin.count++;}
-  return {...bounds,total:cohort.length,counts,tags:[...groups.values()],bins,unit,dated:dated.length,undated:cohort.length-dated.length,samples:cohort.filter(t=>t.demo).length};
+  return {...bounds,total:cohort.length,counts,tags:[...groups.values()],tagTotal:[...groups.values()].reduce((sum,t)=>sum+t.count,0),bins,unit,dated:dated.length,undated:cohort.length-dated.length,samples:cohort.filter(t=>t.demo).length};
  }
  class Controller {
   constructor(hooks) {
@@ -142,7 +148,7 @@
    $('snapshotTagBar').replaceChildren();$('snapshotTags').replaceChildren();
    for(const tag of model.tags) {
     const color=this.hooks.palette()[tag.color]||'#747474';
-    if(tag.count){const segment=document.createElement('span');segment.style.width=100*tag.count/model.total+'%';segment.style.backgroundColor=color;$('snapshotTagBar').append(segment);}
+    if(tag.count){const segment=document.createElement('span');segment.style.width=100*tag.count/model.tagTotal+'%';segment.style.backgroundColor=color;$('snapshotTagBar').append(segment);}
     const item=document.createElement('li'),label=document.createElement('span'),dot=document.createElement('span'),count=document.createElement('strong');
     label.className='task-tag';dot.className='tag-dot';dot.style.backgroundColor=color;dot.setAttribute('aria-hidden','true');label.append(dot,document.createTextNode(tag.name));count.textContent=tag.count;
     item.append(label,count);$('snapshotTags').append(item);
