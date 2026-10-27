@@ -116,6 +116,73 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await page.locator('#quickTaskInput').fill(pastedNames.join('\n'));
     await page.locator('#quickAddForm button[type=submit]').click();
     assert.match(await page.locator('#toast').innerText(),/No duplicates added/);
+    // Exact duplicates, including case and punctuation differences, are blocked
+    // and displayed persistently below Inbox quick add.
+    await page.locator('#quickTaskInput').fill('SORT   GARAGE!');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),false);
+    assert.match(await page.locator('#quickAddFeedback').innerText(),/Sort garage/);
+    assert.match(await page.locator('#quickAddFeedback').innerText(),/No duplicates added/);
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'');
+    // Similar wording requires an explicit choice; cancelling never loses a draft.
+    await page.locator('#quickTaskInput').fill('Sort the garage');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),true);
+    assert.match(await page.locator('#similarTaskRows').innerText(),/Sort garage/);
+    assert.equal(await page.getByRole('checkbox',{name:'Add anyway: Sort the garage'}).isChecked(),false);
+    await page.locator('#similarTaskCancel').click();
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'Sort the garage');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    await page.locator('#similarTaskConfirm').click(); // safe default: skip
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),false);
+    assert.match(await page.locator('#quickAddFeedback').innerText(),/similar names skipped/i);
+    await page.locator('#quickTaskInput').fill('Sort the garage');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    await page.getByRole('checkbox',{name:'Add anyway: Sort the garage'}).check();
+    await page.locator('#similarTaskConfirm').click();
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted&&r.task.title==='Sort the garage').length),1);
+    // A pasted mixed list adds unambiguous tasks and skips exact/unchecked
+    // possible duplicates; users never have to review every line.
+    await page.locator('#quickTaskInput').fill('A freshly unrelated task\nBOARD minutes!\nBoard minute');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),true);
+    assert.match(await page.locator('#similarTaskIntro').innerText(),/1 task can be added/);
+    assert.match(await page.locator('#similarTaskExact').innerText(),/1 task already match exactly/);
+    await page.locator('#similarTaskConfirm').click();
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted&&r.task.title==='A freshly unrelated task').length),1);
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted&&r.task.title==='Board minute').length),0);
+    assert.match(await page.locator('#quickAddFeedback').innerText(),/skipped/);
+    // A shared verb with a different recipient is NOT silently treated as the same task.
+    await page.locator('#quickTaskInput').fill('Call Jo Randall\nCall Jo Roberts');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),false);
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted&&/^Call Jo /.test(r.task.title)).length),2);
+    // New-task editor blocks exact names and reviews similar ones, but permits
+    // later editing the task's own unchanged title.
+    await page.locator('#newTaskButton').click();
+    await page.locator('#taskTitle').fill('JO RANDALL!');
+    await page.locator('#saveTaskButton').click();
+    assert.match(await page.locator('#taskDuplicateFeedback').innerText(),/Jo Randall/);
+    assert.equal(await page.locator('#taskDialog').isVisible(),true);
+    await page.locator('#cancelTaskButton').click();
+    await page.locator('#newTaskButton').click();
+    await page.locator('#taskTitle').fill('Board minute');
+    await page.locator('#saveTaskButton').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),true);
+    await page.getByRole('checkbox',{name:'Add anyway: Board minute'}).check();
+    await page.locator('#similarTaskConfirm').click();
+    assert.equal(await page.locator('#taskDialog').isVisible(),false);
+    await page.getByRole('button',{name:'Edit Board minute',exact:true}).first().click();
+    await page.locator('#taskNotes').fill('Reviewed separately');
+    await page.locator('#saveTaskButton').click();
+    assert.equal(await page.locator('#similarTaskDialog').isVisible(),false);
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Board minute'&&r.task.notes==='Reviewed separately')),true);
+    // File import uses the same safeguards and retains notes on safe items.
+    await page.locator('#importTasksFile').setInputFiles({name:'notes.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({tasks:[{title:'Post meeting summary',notes:'Keep these notes'},{title:'Tape washing machine leak fixed'},{title:'board minutes!'}]}))});
+    await page.locator('#similarTaskDialog').waitFor({state:'visible'});
+    await page.locator('#similarTaskConfirm').click();
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Post meeting summary'&&r.task.notes==='Keep these notes')),true);
+    assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Tape washing machine leak fixed')),false);
     await page.locator('#quickTaskInput').fill('Single keyboard task');
     await page.locator('#quickTaskInput').press('Enter');
     assert.equal(await page.locator('#quickTaskInput').inputValue(),'');

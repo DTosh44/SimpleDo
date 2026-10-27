@@ -2,7 +2,83 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.SimpleDoCapture=api;})(globalThis,()=>{
  'use strict';
  const MAX_ROWS=100,MAX_TITLE=180,MAX_FILE=12*1024*1024;
- const key=text=>text.trim().replace(/\s+/g,' ').toLocaleLowerCase();
+ const key=text=>String(text).normalize('NFKC').toLocaleLowerCase().replace(/&/g,' and ').replace(/[’']/g,'').replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ');
+ const STOP_WORDS=new Set(['a','an','the','to','for','and','with','of','on','in','at','my','your','please','about','from','into']);
+ function signature(title){
+  const normalized=key(title);
+  return {title,normalized,
+   words:[...new Set(normalized.split(' ').filter(word=>word.length>=3&&!STOP_WORDS.has(word)))],
+   numbers:[...new Set(normalized.split(' ').filter(word=>/\d/.test(word)))]
+  };
+ }
+ // Only short edits and strong multi-word overlaps count as a possible match.
+ // This deliberately errs toward showing fewer warnings rather than blocking distinct tasks.
+ function editDistanceWithin(a,b,limit){
+  if(Math.abs(a.length-b.length)>limit)return limit+1;
+  let previous=Array(b.length+1).fill(limit+1);
+  for(let j=0;j<=Math.min(b.length,limit);j++)previous[j]=j;
+  for(let i=1;i<=a.length;i++){
+   const current=Array(b.length+1).fill(limit+1);
+   const start=Math.max(1,i-limit),end=Math.min(b.length,i+limit);
+   if(start===1)current[0]=i;
+   let smallest=limit+1;
+   for(let j=start;j<=end;j++){
+    const cost=a[i-1]===b[j-1]?0:1;
+    const edit=Math.min(previous[j]+1,current[j-1]+1,previous[j-1]+cost);
+    current[j]=edit;if(edit<smallest)smallest=edit;
+   }
+   if(smallest>limit)return limit+1;
+   previous=current;
+  }
+  return previous[b.length];
+ }
+ function similarity(a,b){
+  if(a.normalized===b.normalized)return 0;
+  // Different invoice numbers, dates, amounts or numbered tasks usually
+  // identify deliberately different work, even with identical surrounding words.
+  if(a.numbers.length&&b.numbers.length&&
+     (a.numbers.length!==b.numbers.length||a.numbers.some(n=>!b.numbers.includes(n))))return 0;
+  const shorter=Math.min(a.normalized.length,b.normalized.length),longer=Math.max(a.normalized.length,b.normalized.length);
+  if(shorter<9)return 0;
+  const fewer=a.words.length<=b.words.length?a.words:b.words;
+  const more=a.words.length<=b.words.length?b.words:a.words;
+  const shared=fewer.filter(word=>more.includes(word)).length;
+  const lengthRatio=shorter/longer;
+  if(shared>=2&&shared===fewer.length&&more.length-fewer.length<=2&&lengthRatio>=0.62)return 0.94+0.001*shared;
+  if(shared>=3&&shared/more.length>=0.75&&lengthRatio>=0.65)return 0.90+0.001*shared;
+  const limit=Math.min(7,Math.max(2,Math.floor(longer*0.13)));
+  if(shorter>=12&&longer-shorter<=limit&&
+     (shared>0||a.normalized.slice(0,4)===b.normalized.slice(0,4))&&
+     editDistanceWithin(a.normalized,b.normalized,limit)<=limit)
+   return 0.82+(1-limit/longer)*0.07;
+  return 0;
+ }
+ // Used for Inbox, task editor, voice/scan and file import alike. A completed
+ // task is not an active duplicate; its title can be used again.
+ function assess(rows,existing=[],excludeId=null){
+  const known=existing.filter(task=>task&&!task.completed&&task.id!==excludeId&&typeof task.title==='string')
+   .map(task=>({...signature(task.title),id:task.id||null,source:'existing'}));
+  const result={add:[],exact:[],similar:[]};
+  for(const [index,entry] of rows.entries()){
+   const row=typeof entry==='string'?{title:entry}:entry;
+   if(!row||typeof row.title!=='string'||!row.title.trim()||row.title.trim().length>MAX_TITLE)
+    throw Error('Each task needs 1–180 characters.');
+   const title=row.title.trim(),candidate=signature(title);
+   const identical=known.find(item=>item.normalized===candidate.normalized);
+   if(identical){
+    result.exact.push({index,row:{...row,title},match:{title:identical.title,id:identical.id,source:identical.source}});
+    continue;
+   }
+   let closest=null,highest=0;
+   for(const item of known){const score=similarity(candidate,item);if(score>highest){highest=score;closest=item;}}
+   const entryResult={index,row:{...row,title},...(closest?{match:{title:closest.title,id:closest.id,source:closest.source}}:{})};
+   if(closest)result.similar.push(entryResult);
+   else result.add.push(entryResult);
+   // An earlier line in the same pasted list may be the match for a later line.
+   known.push({...candidate,id:null,source:'list'});
+  }
+  return result;
+ }
  function row(text,confidence=null){
   text=text.trim();
   const done=/^(?:[-*•]\s*)?(?:\[[xX✓✔]\]|[☑✓✔])\s*/u.test(text)||/^~~.+~~$/.test(text);
@@ -46,5 +122,5 @@
   stop(){try{this.recognition?.stop();if(this.recognition)this.stopTimer=this.scope.setTimeout?.(()=>this.cancel(),5000);}catch(_){this.cancel();}}
   cancel(){this.clearTimers();this.generation++;const r=this.recognition;this.recognition=null;if(r){r.onstart=r.onresult=r.onerror=r.onend=null;try{r.abort();}catch(_){}}this.events.state(false);}
  }
- return {MAX_ROWS,key,quickLines,parse,recognized,selected,validateFile,image,Speech,speechError};
+ return {MAX_ROWS,key,assess,quickLines,parse,recognized,selected,validateFile,image,Speech,speechError};
 });
