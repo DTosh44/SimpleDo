@@ -6,16 +6,23 @@
  const STOP_WORDS=new Set(['a','an','the','to','for','and','with','of','on','in','at','my','your','please','about','from','into']);
  function signature(title){
   const normalized=key(title);
-  return {title,normalized,words:[...new Set(normalized.split(' ').filter(word=>word.length>=3&&!STOP_WORDS.has(word)))]};
+  return {title,normalized,
+   words:[...new Set(normalized.split(' ').filter(word=>word.length>=3&&!STOP_WORDS.has(word)))],
+   numbers:[...new Set(normalized.split(' ').filter(word=>/\d/.test(word)))]
+  };
  }
  // Only short edits and strong multi-word overlaps count as a possible match.
  // This deliberately errs toward showing fewer warnings rather than blocking distinct tasks.
  function editDistanceWithin(a,b,limit){
   if(Math.abs(a.length-b.length)>limit)return limit+1;
-  let previous=Array.from({length:b.length+1},(_,i)=>i);
+  let previous=Array(b.length+1).fill(limit+1);
+  for(let j=0;j<=Math.min(b.length,limit);j++)previous[j]=j;
   for(let i=1;i<=a.length;i++){
-   const current=[i];let smallest=i;
-   for(let j=1;j<=b.length;j++){
+   const current=Array(b.length+1).fill(limit+1);
+   const start=Math.max(1,i-limit),end=Math.min(b.length,i+limit);
+   if(start===1)current[0]=i;
+   let smallest=limit+1;
+   for(let j=start;j<=end;j++){
     const cost=a[i-1]===b[j-1]?0:1;
     const edit=Math.min(previous[j]+1,current[j-1]+1,previous[j-1]+cost);
     current[j]=edit;if(edit<smallest)smallest=edit;
@@ -27,6 +34,10 @@
  }
  function similarity(a,b){
   if(a.normalized===b.normalized)return 0;
+  // Different invoice numbers, dates, amounts or numbered tasks usually
+  // identify deliberately different work, even with identical surrounding words.
+  if(a.numbers.length&&b.numbers.length&&
+     (a.numbers.length!==b.numbers.length||a.numbers.some(n=>!b.numbers.includes(n))))return 0;
   const shorter=Math.min(a.normalized.length,b.normalized.length),longer=Math.max(a.normalized.length,b.normalized.length);
   if(shorter<9)return 0;
   const fewer=a.words.length<=b.words.length?a.words:b.words;
@@ -36,7 +47,9 @@
   if(shared>=2&&shared===fewer.length&&more.length-fewer.length<=2&&lengthRatio>=0.62)return 0.94+0.001*shared;
   if(shared>=3&&shared/more.length>=0.75&&lengthRatio>=0.65)return 0.90+0.001*shared;
   const limit=Math.min(7,Math.max(2,Math.floor(longer*0.13)));
-  if(shorter>=12&&longer-shorter<=limit&&editDistanceWithin(a.normalized,b.normalized,limit)<=limit)
+  if(shorter>=12&&longer-shorter<=limit&&
+     (shared>0||a.normalized.slice(0,4)===b.normalized.slice(0,4))&&
+     editDistanceWithin(a.normalized,b.normalized,limit)<=limit)
    return 0.82+(1-limit/longer)*0.07;
   return 0;
  }
