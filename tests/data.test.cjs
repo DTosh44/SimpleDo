@@ -112,3 +112,13 @@ test('duration estimates and working hours survive backup/replace without changi
  assert.throws(()=>parseBackupDocument(JSON.stringify({...store.backup(),planningSettings:{timeZone:'bad'}})));
  assert.throws(()=>parseBackupDocument(JSON.stringify({...store.backup(),tasks:[{...task(),estimateMinutes:-1}]})));
 });
+
+test('multi-tag backups round-trip and reject malformed tag arrays atomically',()=>{
+ const {store}=setup(),assigned={...store.live()[0],tagIds:['work','tag-marketing'],tagId:'home'};
+ store.commit([assigned]);
+ const backup=JSON.stringify(store.backup());
+ assert.deepEqual(parseBackup(backup)[0].tagIds,['work','tag-marketing']);
+ const invalid=[['home','work'],['work','work'],['bad id'],[17]];
+ for(const tagIds of invalid)assert.throws(()=>parseBackup(JSON.stringify({...store.backup(),tasks:[{...assigned,tagIds}]})));
+ assert.deepEqual(store.live()[0].tagIds,['work','tag-marketing']);
+});
