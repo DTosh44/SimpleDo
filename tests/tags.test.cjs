@@ -45,3 +45,18 @@ test('metadata changes during an upload stay queued at the acknowledged revision
  const {tags}=setup(),tag=tags.edit(null,{name:'Trips',color:'blue'}),sent=tags.pending()[0][1];tags.edit(tag.id,{name:'Travel',color:'blue'});
  tags.receive({id:tag.id,payload:tag,revision:1,conflict:false},sent);assert.equal(tags.pending()[0][1].version,1);assert.equal(tags.resolve(tag.id).name,'Travel');
 });
+
+test('multi-tag tasks read legacy labels, combine work areas, and respect Home capacity',()=>{
+ const {store,tags}=setup(),marketing=tags.edit(null,{name:'Marketing',color:'pink',context:'outside'});
+ assert.deepEqual(T.taskIds({tagId:'work'}),['work']);
+ assert.deepEqual(T.taskIds({tagIds:['work',marketing.id],tagId:'home'}),['work',marketing.id]);
+ const mixed={...store.live()[0],tagIds:['work',marketing.id]};
+ store.commit([mixed]);assert.equal(tags.context(store.live()[0]),'work');
+ assert.deepEqual(store.live()[0].tagIds,['work',marketing.id]);
+ const doc=parseBackupDocument(JSON.stringify(store.backup()));assert.deepEqual(doc.tasks[0].tagIds,['work',marketing.id]);
+ store.restore(doc.tasks,true,undefined,doc.tags);assert.deepEqual(store.live()[0].tagIds,['work',marketing.id]);
+ assert.equal(tags.context({tagIds:['home',marketing.id]}),'outside');
+ const monday='2026-10-20',settings={...C.defaults(),timeZone:'Europe/London'};
+ const totals=C.calculate(monday,settings,tags.scoped([{id:'w',date:monday,estimateMinutes:30,tagIds:['work',marketing.id]},{id:'h',date:monday,estimateMinutes:45,tagIds:['home',marketing.id]}]));
+ assert.equal(totals.tasks,30);assert.equal(totals.outside,45);
+});

@@ -22,7 +22,7 @@ Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client.
 - Unfinished past tasks return to Inbox
 - Per-task focus duration and a browser-local Pomodoro timer, including the browser-tab countdown (paused/finished states and normal-title restoration)
 - Optional task duration estimates, working hours, quiet daily capacity bars and scheduling suggestions
-- Single optional tags: Work, Home and custom colour-labelled tags, with a discreet filter
+- Multiple optional tags: combine Work or Home with custom colour-labelled areas, with a discreet filter
 - Optional read-only Outlook/Microsoft 365 and Google Calendar connections
 - Discreet Settings with backup export/restore, account controls, working hours and calendars
 
@@ -38,7 +38,7 @@ These UI changes do **not** alter saved tag colours: Work stays blue, Home stays
 
 Inbox's header now lines up with **Your days**; the Inbox no longer has an outer card, and tasks continue scrolling independently in their own column.
 
-**Work** and **Home** are built in. To create a custom tag while editing a task, choose **+ New tag** next to the tag selector, enter a name, choose from the existing blue/orange/pink/purple/mustard/grey colour swatches and save. The unfinished task form is retained and your new tag is selected when you return. You can also create, rename, recolour and remove custom tags under **Settings → Tags**. One optional tag per task remains the rule; existing task data, backups and sync use the same tag system.
+**Work** and **Home** are built in. To create a custom tag while editing a task, choose **+ New tag** next to the tag chips, enter a name, choose from the existing blue/orange/pink/purple/mustard/grey colour swatches and save. The unfinished task form is retained and your new tag is selected when you return. You can also create, rename, recolour and remove custom tags under **Settings → Tags**. Tasks can have multiple tags (for example Work and Marketing); Work and Home are mutually exclusive. Existing single-tag data, backups and sync remain compatible.
 
 ## Planner · Today · One task
 
@@ -74,13 +74,13 @@ Snapshot uses the existing task model and needs no migration or extra service. I
 
 **Date rules:** current Inbox and other undated tasks are included in every range. Dated tasks belong to the range containing their scheduled day, including tasks currently marked complete. Weeks run Monday–Sunday; months and years use calendar boundaries in the browser's local date. Completed counts describe current task status rather than completion-date history, which the existing app does not record. Returned is a subset of the current unfinished Inbox, based on the existing `rolled` flag, and is not a history of past returns. The in-view **What’s included** note explains these rules.
 
-Tag breakdowns include Work, Home, used custom tags and No tag; removed tags count under No tag and unsynchronised definitions are labelled Tag unavailable. Distribution counts dated tasks, including completed tasks, by day for a week, seven-day blocks for a month and calendar months for a year. Undated tasks are not plotted. These are task counts, independent of work/personal capacity rules and estimated hours.
+Tag breakdowns include Work, Home, used custom tags and No tag; a multi-tagged task is counted once in each selected tag (the colour strip shows the share of tag assignments). Removed tags count under No tag and unsynchronised definitions are labelled Tag unavailable. Distribution counts dated tasks, including completed tasks, by day for a week, seven-day blocks for a month and calendar months for a year. Undated tasks are not plotted. These are task counts, independent of work/personal capacity rules and estimated hours.
 
 ## Simple tags
 
-Each task can have **one optional tag**. Work uses a blue dot and Home an orange dot, always with a visible text label. Existing tasks remain untagged. Choose a tag in the task editor or leave **No tag**; the type-and-add field remains immediate. Voice and list review also offer an optional tag. The **Show** filter applies to Inbox, Planner, Today and One task, together with search.
+Each task can have **multiple optional tags**. Work uses a blue dot and Home an orange dot, always with a visible text label; select only one of Work or Home, plus any useful areas. Existing tasks remain untagged. Choose tag chips in the task editor or leave them all unticked; the type-and-add field remains immediate. Voice and list review also offer an optional tag. The **Show** filter applies to Inbox, Planner, Today and One task, together with search.
 
-In **Settings → Tags**, create, rename, recolour or delete custom tags. Colours come from the existing blue, orange, pink, purple, mustard and grey palette. Work and Home are fixed defaults. Custom tags use stable IDs, so renaming updates their labels without changing task identity. Deletion removes the label and filter option while keeping every associated task. A removed tag retains its capacity classification; choose **No tag** explicitly in the editor to clear that association and return to the untagged working-hours rule.
+In **Settings → Tags**, create, rename, recolour or delete custom tags. Colours come from the existing blue, orange, pink, purple, mustard and grey palette. Work and Home are fixed defaults. Custom tags use stable IDs, so renaming updates their labels without changing task identity. Deletion removes the label and filter option while keeping every associated task. A removed tag retains its capacity classification until edited; untick its chip in the editor to clear that association. Work always uses working hours, Home always uses other time.
 
 Home tasks do **not** consume working-hours capacity. Custom tags default to **Separate from working hours**; choose **Use working hours** when appropriate. Untagged tasks retain the existing working-hours rule. The day indicator lists separate estimates as **other time**, without claiming that personal availability has been configured. Separate-time tasks receive no work-hours scheduling recommendation. Capacity always includes all tasks in the relevant availability group, regardless of the current display filter. Separate availability rules for Home/personal time can be added later without changing task IDs or tag identities.
 
@@ -149,7 +149,7 @@ Only task data and focus **preferences** sync. Active countdowns, pause/resume s
 
 In **GitHub repository Settings → Pages**, choose **Deploy from a branch**, **main**, **/(root)**. All asset URLs are relative to support the `/SimpleDo/` project path. No server, secrets or build is required. Keep `config.js` present even when cloud is disabled. Serve the repository locally with `python3 -m http.server 8000`, then open `http://localhost:8000/`. Direct `file://` opening does not support service workers and is unsuitable for authentication testing.
 
-The service worker caches only the local app shell; it does not cache auth callback URLs, account API responses or user backups. Browser-local task storage and Supabase account storage remain separate from the public repository. When changing asset versions, update the versioned script/style URLs and the shell cache/files in `sw.js` together.
+The service worker caches only the local app shell; it does not cache auth callback URLs, account API responses or user backups. Browser-local task storage and Supabase account storage remain separate from the public repository. When changing asset versions, update the versioned script/style URLs and the shell cache/files in `sw.js` together. Multi-tag edits use a backwards-compatible `tagIds` array while still reading older `tagId` records without a destructive migration; refresh older clients before editing the same task on multiple devices.
 
 ## Tests and verification
 

@@ -268,7 +268,7 @@
       id: makeId(), title: item.row.title, notes: item.row.notes || "", date: null,
       completed: false, main: false, rolled: false, demo: false,
       createdAt: new Date(timestamp + index).toISOString(),
-      ...(tag ? {tagId:tag.id,capacityContext:tagCatalog.context({tagId:tag.id})} : {})
+      ...(tag ? {tagIds:[tag.id],capacityContext:tagCatalog.context({tagIds:[tag.id]})} : {})
     }));
     tasks = [...tasks, ...additions];
     if (!persist()) {
@@ -724,8 +724,9 @@
       tasks.push(task);
     }
     task.estimateMinutes = estimateMinutes;
-    const tagId = $("taskTag").value || null;
-    if (tagId || task.tagId) { task.tagId = tagId; task.capacityContext = tagId ? tagUI.context(tagId) : "work"; }
+    task.tagIds = tagUI?.selection() || [];
+    delete task.tagId; // An edited legacy record adopts multi-tag storage; others remain untouched.
+    task.capacityContext = tagCatalog.context(task);
     if (task.main && date) {
       tasks.forEach((other) => {
         if (other.id !== task.id && other.date === date) other.main = false;
@@ -1181,7 +1182,7 @@
       if (!returnToTaskAfterTags) return;
       returnToTaskAfterTags = false;
       if (!els.taskDialog.open) els.taskDialog.showModal();
-      $("taskTag").focus();
+      tagUI?.focus();
     });
     els.globalFocusButton.addEventListener("click", () => {
       if (focusSession) openFocus(focusSession.taskId);
@@ -1387,11 +1388,10 @@
   }
   function updateSchedulingGuidance() {
     if (!planning) return;
-    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId, tagUI?.context($("taskTag").value));
+    const result = planning.guidance(chosenDate(), chosenEstimate(), tasks, editingId, tagUI?.context(tagUI?.selection() || []));
     $("scheduleMessage").textContent = result.text;
     suggestedDate = result.date; $("useSuggestedDay").hidden = !suggestedDate;
   }
-  $("taskTag").onchange = updateSchedulingGuidance;
   $("taskEstimate").onchange = updateEstimate;
   $("estimateCustomMinutes").oninput = updateSchedulingGuidance;
   els.customDateInput.addEventListener("input", updateSchedulingGuidance);
@@ -1404,10 +1404,10 @@
     tagCatalog = new SimpleDoTags.Catalog(store);
     tagUI = new SimpleDoTagUI.Controller(tagCatalog, {
       tasks:()=>tasks, changed:()=>render(), saved:()=>cloud?.schedule(),
+      selectionChanged:()=>updateSchedulingGuidance(),
       created: tag => {
         if (returnToTaskAfterTags) {
-          $("taskTag").value = tag.id;
-          tagUI.updateTaskSelection();
+          tagUI.selectTag(tag.id);
           $("settingsDialog").close();
         }
       }

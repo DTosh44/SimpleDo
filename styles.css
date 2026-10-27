@@ -378,6 +378,7 @@ body[data-active-view="inbox"] .inbox-panel {
 
 .tag-filter-row {display:flex;align-items:center;gap:8px;margin:-7px 0 18px;color:#888;font-size:11px}
 .tag-filter-row select {max-width:200px;border:1px solid #e5e5e5;border-radius:8px;background:white;color:#444;padding:7px 26px 7px 9px;font-size:11px}
+.task-tags {display:inline-flex;flex-wrap:wrap;gap:6px 12px;align-items:center;max-width:100%}
 .task-tag {display:inline-flex;align-items:center;gap:5px;font-size:10px;color:#626262;max-width:100%;overflow-wrap:anywhere}
 .tag-dot {display:inline-block;flex-shrink:0;width:6px;height:6px;border-radius:50%;background:#747474}
 .tag-work {background:#4578c9}.tag-home {background:#ef9b2d}
@@ -579,9 +580,13 @@ body[data-active-view=one-task] .day-add {color:var(--colour-capture-ink);}
 .snapshot-ranges button:hover:not([aria-pressed=true]) {background:#f7f7f7;color:var(--ink);}
 
 /* The task editor can create custom tags using the existing colour palette. */
-.task-tag-picker {display:flex;align-items:center;gap:9px;width:100%;}
-.task-tag-picker .field-input {flex:1;min-width:0;}
-.task-tag-preview {width:10px;height:10px;flex:0 0 10px;}
+.task-tag-picker {display:flex;align-items:flex-start;gap:10px;width:100%;flex-wrap:wrap;}
+.task-tag-choices {display:flex;align-items:center;flex:1;flex-wrap:wrap;gap:7px;min-width:160px;}
+.task-tag-choice {position:relative;display:inline-flex;align-items:center;gap:7px;min-height:35px;padding:7px 11px;border:1px solid #dedede;border-radius:999px;background:#fff;color:#626262;cursor:pointer;font-size:12px;line-height:1.2;}
+.task-tag-choice input {position:absolute;width:1px;height:1px;opacity:0;}
+.task-tag-choice.is-selected {border-color:#a1a1a1;background:#f2f2f2;color:#242424;box-shadow:inset 0 0 0 1px #b7b7b7;}
+.task-tag-choice:focus-within {outline:2px solid #252525;outline-offset:2px;}
+.task-tag-choice:has(input:disabled) {opacity:.65;}
 .tag-create-shortcut {
   min-height:44px;padding:8px 11px;border:1px solid #e1e1e1;
   border-radius:9px;background:#fff;color:var(--ink);font-size:12px;

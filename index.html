@@ -8,21 +8,21 @@
   <title>SimpleDo</title>
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=29">
-  <script src="./tags.js?v=14" defer></script>
-  <script src="./tag-ui.js?v=18" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=30">
+  <script src="./tags.js?v=15" defer></script>
+  <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
-  <script src="./data.js?v=13" defer></script>
+  <script src="./data.js?v=14" defer></script>
   <script src="./config.js?v=9" defer></script>
   <script src="./vendor/supabase.js" defer></script>
   <script src="./cloud.js?v=13" defer></script>
   <script src="./calendar.js?v=13" defer></script>
   <script src="./planning.js?v=13" defer></script>
-  <script src="./snapshot.js?v=15" defer></script>
+  <script src="./snapshot.js?v=16" defer></script>
   <script src="./capture.js?v=17" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=21" defer></script>
+  <script src="./app.js?v=22" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -123,7 +123,7 @@
           <div class="snapshot-counts"><div><strong id="snapshot-inbox">0</strong><span>Inbox <small>now</small></span></div><div><strong id="snapshot-scheduled">0</strong><span>Scheduled <small>unfinished</small></span></div><div><strong id="snapshot-completed">0</strong><span>Completed <small>in this snapshot</small></span></div><div><strong id="snapshot-returned">0</strong><span>Returned <small>part of Inbox</small></span></div></div>
           <div class="snapshot-bar snapshot-status-bar" id="snapshotStatusBar" aria-hidden="true"></div>
           <p class="snapshot-scope" id="snapshotScope"></p><p id="snapshotEmpty" class="snapshot-empty" hidden>No tasks in this range.</p>
-          <section class="snapshot-section" aria-labelledby="snapshotTagHeading"><h2 id="snapshotTagHeading">By tag</h2><div class="snapshot-bar" id="snapshotTagBar" aria-hidden="true"></div><ul class="snapshot-tags" id="snapshotTags"></ul></section>
+          <section class="snapshot-section" aria-labelledby="snapshotTagHeading"><h2 id="snapshotTagHeading">By tag</h2><p class="snapshot-scope">Tasks with several tags count under each tag.</p><div class="snapshot-bar" id="snapshotTagBar" aria-hidden="true"></div><ul class="snapshot-tags" id="snapshotTags"></ul></section>
           <section class="snapshot-section" id="snapshotDensity" aria-labelledby="snapshotDensityLabel" hidden><h2 id="snapshotDensityLabel">By day</h2><ul class="snapshot-bins" id="snapshotBins"></ul><p class="snapshot-scope" id="snapshotDensityNote"></p></section>
           <details class="snapshot-method"><summary>What’s included</summary><p>Current Inbox and other undated tasks appear in every range. Dated tasks use their scheduled day, including completed tasks. All ranges include their first and last dates; custom ranges may cross years. Weeks run Monday to Sunday; months and years use calendar boundaries.</p><p>Completed is a task’s current status, not a history of when it was completed. Returned counts unfinished Inbox tasks currently marked as returned, not historical returns. It is already included in Inbox. Removed tags appear under No tag.</p><p>This view includes all tasks, independently of Planner search and tag filters. Distribution shows task counts, including Work and Home, without assuming how many working hours they need.</p></details>
         </section>
@@ -150,8 +150,8 @@
       <p id="taskDuplicateFeedback" class="duplicate-feedback" role="status" aria-live="polite" hidden></p>
       <label for="taskNotes" class="field-label">Notes <span>(optional)</span></label>
       <textarea id="taskNotes" class="field-input field-textarea" rows="3" maxlength="2000" placeholder="Any extra details..."></textarea>
-      <label for="taskTag" class="field-label">Tag <span>(optional)</span></label>
-      <div class="task-tag-picker"><span id="taskTagDot" class="tag-dot task-tag-preview" aria-hidden="true" hidden></span><select id="taskTag" class="field-input"><option value="">No tag</option></select><button type="button" class="tag-create-shortcut" id="createTagFromTask">+ New tag</button></div>
+      <div class="field-label" id="taskTagsLabel">Tags <span>(optional — choose more than one)</span></div>
+      <div class="task-tag-picker"><div id="taskTags" class="task-tag-choices" role="group" aria-labelledby="taskTagsLabel"></div><button type="button" class="tag-create-shortcut" id="createTagFromTask">+ New tag</button></div>
       <label for="taskEstimate" class="field-label">Estimated time <span>(optional)</span></label>
       <select id="taskEstimate" class="field-input"><option value="">No estimate</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">1 hour</option><option value="120">2 hours</option><option value="custom">Custom duration…</option></select>
       <div id="estimateCustomWrap" hidden><label for="estimateCustomMinutes" class="field-label">Estimated minutes</label><input id="estimateCustomMinutes" type="number" class="field-input" min="1" max="10080" step="1" inputmode="numeric"></div>
@@ -243,7 +243,7 @@
         <div id="mergeAccount" hidden><p>Merge this browser’s tasks with this account? No tasks will be removed. Keep local to pause sync on this device. Switching accounts can copy these tasks to the new account.</p><button class="button button-dark" id="enableSync">Merge and enable sync</button><button class="button button-outline" id="keepLocal">Keep local</button></div>
         <p id="accountError" role="status"></p>
       </section>
-      <section class="settings-section"><details id="tagSettingsDetails"><summary>Tags</summary><p><span class="task-tag"><span class="tag-dot tag-work" aria-hidden="true"></span>Work</span> <span class="task-tag"><span class="tag-dot tag-home" aria-hidden="true"></span>Home</span> are always available. One optional tag per task.</p>
+      <section class="settings-section"><details id="tagSettingsDetails"><summary>Tags</summary><p><span class="task-tag"><span class="tag-dot tag-work" aria-hidden="true"></span>Work</span> <span class="task-tag"><span class="tag-dot tag-home" aria-hidden="true"></span>Home</span> are always available. Combine Work or Home with an area tag; Work and Home cannot both be selected.</p>
       <form id="tagForm"><label class="field-label" for="customTagChoice">Custom tags</label><select id="customTagChoice" class="field-input"><option value="">Create a tag</option></select>
       <label class="field-label" for="tagName">Name</label><input id="tagName" class="field-input" maxlength="32" required autocomplete="off">
       <label class="field-label" for="tagColor">Colour</label><div class="tag-color-field"><span class="tag-dot" id="tagColorDot" aria-hidden="true"></span><select id="tagColor" class="field-input"></select></div>

@@ -21,6 +21,10 @@
           !Number.isFinite(Date.parse(t.date)) || new Date(t.date).toISOString().slice(0,10) !== t.date)) ||
         ['completed','main','rolled','demo'].some(k => t[k] !== undefined && typeof t[k] !== 'boolean') ||
         (t.tagId != null && !['work','home'].includes(t.tagId) && !tags.validId(t.tagId)) ||
+         (t.tagIds !== undefined && (!Array.isArray(t.tagIds) || t.tagIds.length > 16 ||
+           t.tagIds.some(id => !['work','home'].includes(id) && !tags.validId(id)) ||
+           new Set(t.tagIds).size !== t.tagIds.length ||
+           (t.tagIds.includes('work') && t.tagIds.includes('home')))) ||
         (t.capacityContext != null && !['work','outside'].includes(t.capacityContext)) ||
         (t.estimateMinutes != null && (!Number.isInteger(t.estimateMinutes) || t.estimateMinutes < 1 || t.estimateMinutes > 10080)) ||
         (t.focusMinutes != null && (!Number.isInteger(t.focusMinutes) || t.focusMinutes < 1 || t.focusMinutes > 180)) ||

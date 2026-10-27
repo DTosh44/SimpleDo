@@ -103,3 +103,11 @@ test('custom Snapshot selects daily, weekly, monthly and annual density based on
  const single=S.summarize([{date:'2027-09-18'}],'custom',anchor,catalog,{start:'2027-09-18',end:'2027-09-18'});
  assert.equal(single.bins.length,0);assert.equal(single.counts.scheduled,1);
 });
+
+test('multi-tag Snapshot counts each assignment while keeping the unique task total',()=>{
+ const tasks=[{id:'w',tagIds:['work',custom.id]},{id:'h',tagIds:['home']},{id:'x',tagIds:[]}];
+ const result=S.summarize(tasks,'today','2026-10-16',catalog);
+ const counts=Object.fromEntries(result.tags.map(t=>[t.name,t.count]));
+ assert.equal(result.total,3);assert.equal(result.tagTotal,4);
+ assert.deepEqual(counts,{Work:1,Home:1,'No tag':1,Garden:1});
+});
