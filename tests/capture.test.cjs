@@ -28,6 +28,40 @@ test('capture ignores unchecked rows, rejects invalid selected titles, skips act
  assert.throws(()=>C.selected([{text:' ',selected:true}]),/1–180/);assert.throws(()=>C.selected([{text:'x'.repeat(181),selected:true}]),/1–180/);
  assert.throws(()=>C.parse('item\n'.repeat(101)),/100 tasks/);
 });
+
+test('duplicate assessment distinguishes exact, similar and different unfinished tasks',()=>{
+ const active=(title,id='existing')=>({id,title,completed:false});
+ const examples=[
+  ['Sort garage','  SORT   garage! ','exact'],
+  ['Tape washing machine leak','Tape washing machine leaks','similar'],
+  ['Sort garage','Sort the garage','similar'],
+  ['Email Vicki about fam trip','Vicki fam trip email','similar'],
+  ['Membership brochure briefed into Mikey','Membership brochure briefing for Mikey','similar'],
+  ['Board minutes','Board minute','similar'],
+  ['Sort garage','Sort kitchen','add'],
+  ['Call Jo Randall','Call Jo Roberts','add'],
+  ['Buy milk','Buy silk','add']
+ ];
+ for(const [oldTitle,newTitle,kind] of examples){
+  const result=C.assess([{title:newTitle}],[active(oldTitle)]);
+  assert.equal(result[kind].length,1,newTitle+' should be '+kind);
+  assert.equal(result.add.length+result.exact.length+result.similar.length,1);
+ }
+ assert.equal(C.key(' Jo-Randall! '),C.key('jo randall'));
+ assert.equal(C.key('R&D'),C.key('R and D'));
+});
+test('completed titles can recur, same-batch duplicates are skipped, edits can exclude themselves',()=>{
+ const active=[{id:'1',title:'Sort garage',completed:false},{id:'2',title:'Board minutes',completed:true}];
+ let result=C.assess([{title:'Sort garage'},{title:'Sort the garage'},{title:'Board minutes'},{title:'Email Vicki'},{title:'email vicki!'}],active);
+ assert.deepEqual(result.exact.map(x=>x.index),[0,4]);
+ assert.deepEqual(result.similar.map(x=>x.index),[1]);
+ assert.deepEqual(result.add.map(x=>x.index),[2,3]);
+ assert.equal(result.similar[0].match.title,'Sort garage');
+ assert.equal(C.assess([{title:'Sort garage'}],active,'1').add.length,1);
+ assert.equal(C.assess([{title:'Board minutes'}],active).exact.length,0);
+ assert.throws(()=>C.assess([{title:'x'.repeat(181)}],active),/180 characters/);
+});
+
 test('capture tasks round-trip ordinary store, backup and two-device revision sync, preserving old fields',()=>{
  const a=new Store(new Memory()),b=new Store(new Memory());a.load([{id:'old',title:'Existing',notes:'Keep',priority:7}]);b.load([]);
  const tasks=C.selected(C.parse('Book dentist\nMow lawn')).titles.map((title,i)=>({id:'capture-'+i,title,date:null,notes:'',tagId:'home',capacityContext:'outside',createdAt:new Date().toISOString(),completed:false,main:false,rolled:false,demo:false}));
