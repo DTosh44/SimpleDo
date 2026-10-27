@@ -747,3 +747,17 @@ body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
   outline:2px solid var(--ink);
   outline-offset:3px;
 }
+
+/* Multi-line Inbox quick add: one-line by default, grows when a list is pasted. */
+.quick-add-form { height:auto; min-height:56px; align-items:flex-start; }
+.quick-add-form textarea {
+  flex:1 1 auto; width:100%; min-width:0; min-height:44px; max-height:160px;
+  margin:0; padding:12px 0; border:0; background:transparent;
+  color:#454545; font-size:12px; line-height:20px;
+  outline:0; resize:none; overflow-y:auto;
+}
+.quick-add-form textarea::placeholder { color:#a5a5a5; }
+@media(max-width:650px) {
+  .quick-add-form textarea { font-size:16px; }
+  .inbox-import-row { flex-wrap:wrap; }
+}

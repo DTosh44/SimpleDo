@@ -100,6 +100,35 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     // Existing Inbox importer remains a separate append-only flow.
     await page.locator('#importTasksFile').setInputFiles({name:'list.txt',mimeType:'text/plain',buffer:Buffer.from('One Inbox task\nOne Inbox task\nSecond Inbox task')});
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records && Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted).length===3);
+    // The Inbox accepts pasted lines directly, without file import.
+    const pastedNames = ['Tape washing machine leak','Sort garage','Jo Randall','Chiltern ideation','Lucy and Nour','Board minutes','New events page live','Vicki fam trip email - meeting with objectives','Itineraries page - how to build more every day - vw','Membership brochure briefed into Mikey','Confirmation Statement - TC Group - Jo Roberts'];
+    assert.equal(await page.locator('#quickTaskInput').evaluate(el=>el.tagName),'TEXTAREA');
+    await page.locator('#quickTaskInput').fill(pastedNames.join('\n'));
+    assert.match(await page.locator('#quickAddHint').innerText(),/11 tasks ready/);
+    assert.equal(await page.locator('#quickAddForm button[type=submit]').getAttribute('aria-label'),'Add 11 tasks to Inbox');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    const pastedTasks = await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).filter(r=>!r.deleted).map(r=>r.task).filter(t=>['Tape washing machine leak','Sort garage','Jo Randall','Chiltern ideation','Lucy and Nour','Board minutes','New events page live','Vicki fam trip email - meeting with objectives','Itineraries page - how to build more every day - vw','Membership brochure briefed into Mikey','Confirmation Statement - TC Group - Jo Roberts'].includes(t.title)));
+    assert.deepEqual(pastedTasks.map(t=>t.title),pastedNames,'pasted line order and spelling are retained');
+    assert.equal(new Set(pastedTasks.map(t=>t.id)).size,11);
+    assert.ok(pastedTasks.every(t=>t.date===null && !t.completed));
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'');
+    // Repeated paste does not create duplicate unfinished tasks.
+    await page.locator('#quickTaskInput').fill(pastedNames.join('\n'));
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.match(await page.locator('#toast').innerText(),/No duplicates added/);
+    await page.locator('#quickTaskInput').fill('Single keyboard task');
+    await page.locator('#quickTaskInput').press('Enter');
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'');
+    await page.locator('#quickTaskInput').fill('First keyboard line');
+    await page.locator('#quickTaskInput').press('Shift+Enter');
+    await page.locator('#quickTaskInput').type('Second keyboard line');
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'First keyboard line\nSecond keyboard line');
+    await page.locator('#quickAddForm button[type=submit]').click();
+    await page.locator('#quickTaskInput').fill('x'.repeat(181));
+    await page.locator('#quickAddForm button[type=submit]').click();
+    assert.equal(await page.locator('#quickTaskInput').inputValue(),'x'.repeat(181),'invalid draft is not discarded');
+    assert.match(await page.locator('#toast').innerText(),/180 characters/);
+    await page.locator('#quickTaskInput').fill('');
     await page.getByRole('button',{name:'Edit One Inbox task',exact:true}).first().click();
     await page.locator('#startTaskFromEditor').click(); await page.locator('#focusDurationSelect').selectOption('15'); await page.locator('#focusStartButton').click();
     assert.match(await page.locator('#focusCountdown').innerText(),/1[45]:\d\d/);

@@ -28,8 +28,8 @@ const today='2026-10-16',tomorrow='2026-10-17',task=(id,title,props={})=>({id,ti
   await page.locator('[data-nav=snapshot]').click();
   assert.equal(await page.locator('#pageTitle').innerText(),'Snapshot.');
   await todayNav();assert.equal(await page.locator('#pageTitle').innerText(),'Friday 16 October');
-  assert.equal(await page.locator('#pageTitle .full-stop').evaluate(el=>getComputedStyle(el).color),
-    'rgb(140, 77, 11)','Today page full stop uses legible orange');
+  assert.equal(await page.locator('#pageTitle .full-stop').count(),0,
+    'Today date heading should have no trailing punctuation');
   assert.match(await page.locator('#todayFeatured').innerText(),/No tasks today/);assert.equal(await page.locator('#todayCompleted').isVisible(),false);assert.equal(await page.locator('#inboxZone').isVisible(),false);
   await page.locator('#todayAdd').click();assert.equal(await page.locator('#taskDate').inputValue(),'today');await page.locator('#taskTitle').fill('Only one task');await page.locator('#saveTaskButton').click();assert.equal(await page.locator('.today-feature-label').textContent(),'Up next');assert.equal(await page.locator('#todayAlsoSection').isVisible(),false);
   assert.equal(await page.locator('#todayFeatured .today-feature').evaluate(el=>getComputedStyle(el,'::before').backgroundColor),'rgb(239, 155, 45)','Up next uses the Today orange');
