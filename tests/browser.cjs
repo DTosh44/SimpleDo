@@ -179,7 +179,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Board minute'&&r.task.notes==='Reviewed separately')),true);
     // File import uses the same safeguards and retains notes on safe items.
     await page.locator('#importTasksFile').setInputFiles({name:'notes.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify({tasks:[{title:'Post meeting summary',notes:'Keep these notes'},{title:'Tape washing machine leak fixed'},{title:'board minutes!'}]}))});
-    assert.equal(await page.locator('#similarTaskDialog').isVisible(),true);
+    await page.locator('#similarTaskDialog').waitFor({state:'visible'});
     await page.locator('#similarTaskConfirm').click();
     assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Post meeting summary'&&r.task.notes==='Keep these notes')),true);
     assert.equal(await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records).some(r=>!r.deleted&&r.task.title==='Tape washing machine leak fixed')),false);
