@@ -285,7 +285,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('#tagFilter').selectOption(customId);assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);
     await capacityPage.locator('#tagFilter').selectOption('');
     await capacityPage.getByRole('button',{name:'Settings',exact:true}).click();await capacityPage.locator('#customTagChoice').selectOption(customId);await capacityPage.locator('#tagName').fill('Outdoors');await capacityPage.getByRole('button',{name:'Save tag',exact:true}).click();
-    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),1);
+    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),2);
     const [tagDownload]=await Promise.all([capacityPage.waitForEvent('download'),capacityPage.locator('#exportBackup').click()]);
     const tagBackup=JSON.parse(fs.readFileSync(await tagDownload.path(),'utf8'));assert.ok(tagBackup.tags.some(t=>t.id===customId&&t.name==='Outdoors'));assert.ok(tagBackup.tasks.some(t=>t.title==='Buy groceries'&&t.tagIds?.includes('home')));
     await capacityPage.locator('#deleteCustomTag').click();assert.equal(await capacityPage.locator('#tagName').inputValue(),'');assert.equal(await capacityPage.locator('#deleteCustomTag').isVisible(),false);await capacityPage.locator('#closeSettings').click();
