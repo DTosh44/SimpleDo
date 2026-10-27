@@ -2,7 +2,7 @@ name: SimpleDo tests
 
 on:
   push:
-    branches: [main, codex/inbox-multiline-task-paste]
+    branches: [main]
   pull_request:
     branches: [main]
 
