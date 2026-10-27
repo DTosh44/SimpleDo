@@ -263,7 +263,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.setViewportSize({width:1440,height:1000});await capacityPage.screenshot({path:'/tmp/simpledo-capacity-desktop.png'});
     await capacityPage.setViewportSize({width:1440,height:1000});
     async function createTagged(title,tag,estimate='',date='') {
-      await capacityPage.locator('#newTaskButton').click();await capacityPage.locator('#taskTitle').fill(title);await capacityPage.locator('#taskTag').selectOption(tag);
+      await capacityPage.locator('#newTaskButton').click();await capacityPage.locator('#taskTitle').fill(title);await capacityPage.locator('#taskTags input[data-tag-id="'+tag+'"]').check();
       await capacityPage.locator('#taskEstimate').selectOption(estimate);
       if(date){await capacityPage.locator('#taskDate').selectOption('custom');await capacityPage.locator('#customDateInput').fill(date);assert.match(await capacityPage.locator('#scheduleMessage').innerText(),/Outside working hours/);}
       await capacityPage.locator('#saveTaskButton').click();
@@ -276,6 +276,10 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('#tagName').fill('Garden');await capacityPage.locator('#tagColor').selectOption('purple');await capacityPage.getByRole('button',{name:'Save tag',exact:true}).click();
     const customId=await capacityPage.locator('#customTagChoice').inputValue();assert.match(customId,/^tag-/);await capacityPage.locator('#closeSettings').click();
     await createTagged('Plant bulbs',customId,'30',tuesday);
+    await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).first().click();
+    await capacityPage.locator('#taskTags input[data-tag-id="'+customId+'"]').check();
+    await capacityPage.locator('#saveTaskButton').click();
+    assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Garden'}).count(),2);
     await capacityPage.locator('#tagFilter').selectOption('work');assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),0);
     await capacityPage.locator('#tagFilter').selectOption('home');assert.match(await capacityPage.locator('#inboxTasks').innerText(),/No Inbox tasks with this tag/);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),0);
     await capacityPage.locator('#tagFilter').selectOption(customId);assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);
@@ -283,7 +287,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.getByRole('button',{name:'Settings',exact:true}).click();await capacityPage.locator('#customTagChoice').selectOption(customId);await capacityPage.locator('#tagName').fill('Outdoors');await capacityPage.getByRole('button',{name:'Save tag',exact:true}).click();
     assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),1);
     const [tagDownload]=await Promise.all([capacityPage.waitForEvent('download'),capacityPage.locator('#exportBackup').click()]);
-    const tagBackup=JSON.parse(fs.readFileSync(await tagDownload.path(),'utf8'));assert.ok(tagBackup.tags.some(t=>t.id===customId&&t.name==='Outdoors'));assert.ok(tagBackup.tasks.some(t=>t.title==='Buy groceries'&&t.tagId==='home'));
+    const tagBackup=JSON.parse(fs.readFileSync(await tagDownload.path(),'utf8'));assert.ok(tagBackup.tags.some(t=>t.id===customId&&t.name==='Outdoors'));assert.ok(tagBackup.tasks.some(t=>t.title==='Buy groceries'&&t.tagIds?.includes('home')));
     await capacityPage.locator('#deleteCustomTag').click();assert.equal(await capacityPage.locator('#tagName').inputValue(),'');assert.equal(await capacityPage.locator('#deleteCustomTag').isVisible(),false);await capacityPage.locator('#closeSettings').click();
     assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Outdoors'}).count(),0);
     // Create a custom-colour tag directly from a task without losing draft fields.
@@ -301,8 +305,8 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('#taskDialog').waitFor({state:'visible'});
     assert.equal(await capacityPage.locator('#taskTitle').inputValue(),'Keep unsaved task title');
     assert.equal(await capacityPage.locator('#taskNotes').inputValue(),'Keep unsaved task notes');
-    assert.match(await capacityPage.locator('#taskTag').inputValue(),/^tag-/);
-    assert.equal(await capacityPage.locator('#taskTagDot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(224, 196, 77)');
+    assert.equal(await capacityPage.locator('#taskTags input[data-tag-id^="tag-"]:checked').count(),1);
+    assert.equal(await capacityPage.locator('#taskTags .task-tag-choice.is-selected .tag-dot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(224, 196, 77)');
     await capacityPage.locator('#cancelTaskButton').click();
     assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h 30m other time/);
     const preserved=await capacityPage.evaluate(()=>JSON.parse(localStorage.getItem('simpledo.data.v2')).records['full-day'].task);assert.equal(preserved.tagId,undefined);
@@ -356,7 +360,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('[data-snapshot-range="year"]').click();
     const snapshotYear=await capacityPage.evaluate(()=>new Date().getFullYear());
     const fullTasks=Object.values(allTasksBefore.records).filter(r=>!r.deleted&&(!r.task.date||r.task.date.startsWith(snapshotYear+'-'))).length;
-    const shown=await capacityPage.locator('#snapshotTags li strong').allTextContents();assert.equal(shown.reduce((sum,n)=>sum+Number(n),0),fullTasks);
+    const shown=await capacityPage.locator('#snapshotTags li strong').allTextContents();assert.ok(shown.reduce((sum,n)=>sum+Number(n),0)>=fullTasks);
     await capacityPage.keyboard.press('n');assert.equal(await capacityPage.locator('#taskDialog').isVisible(),false,'Snapshot has no task-edit shortcut');
     assert.equal(await capacityPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),savedBeforeSnapshot,'Snapshot range changes never write task data');
     await capacityPage.screenshot({path:'/tmp/simpledo-snapshot-desktop.png'});
