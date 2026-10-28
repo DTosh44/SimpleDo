@@ -19,17 +19,17 @@
   <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
   <script src="./data.js?v=15" defer></script>
-  <script src="./completion.js?v=2" defer></script>
+  <script src="./completion.js?v=3" defer></script>
   <script src="./config.js?v=10" defer></script>
   <script src="./vendor/supabase.js" defer></script>
-  <script src="./cloud.js?v=15" defer></script>
+  <script src="./cloud.js?v=16" defer></script>
   <script src="./calendar.js?v=13" defer></script>
   <script src="./planning.js?v=13" defer></script>
   <script src="./snapshot.js?v=16" defer></script>
   <script src="./capture.js?v=17" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=26" defer></script>
+  <script src="./app.js?v=27" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -293,7 +293,7 @@
           <option value="5-days">5 days</option>
           <option value="indefinitely">Indefinitely</option>
         </select>
-        <p class="focus-hint">Completed tasks are hidden from the Inbox after the chosen period, never deleted. They're still counted in Snapshot; scheduled tasks stay on their days. Earlier completions without a recorded finish time remain visible. This display preference syncs with your SimpleDo account across devices when you are signed in and sync is enabled. Offline changes are saved locally until the next sync.</p>
+        <p class="focus-hint">Completed tasks are hidden from the Inbox after the chosen period, never deleted. They're still counted in Snapshot; scheduled tasks stay on their days. Earlier completions without a recorded finish time remain visible. This display preference syncs with your SimpleDo account across devices as soon as you are signed in. Task uploads still require your merge consent. Offline changes are saved locally until the next sync.</p>
         <p id="inboxVisibilityStatus" role="status"></p>
       </section>
       <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>

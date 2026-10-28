@@ -98,8 +98,19 @@
       this.sequence++;
       return true;
     }
+    refresh(){
+      if(!this.owner)return false;
+      let stored;
+      try{stored=validateAccountState(JSON.parse(this.storage.getItem(this.accountKey(this.owner))));}catch(_){}
+      if(!stored)throw Error('Saved completed-task preference is unreadable. Existing data has been preserved.');
+      if(JSON.stringify(stored)===JSON.stringify(this.state))return false;
+      const changed=stored.value!==this.state.value;
+      this.state=stored;this.sequence++;
+      return changed;
+    }
     set(value){
       if(!allowed(value))throw Error('Choose a valid completed-task visibility period.');
+      this.refresh();
       if(this.state.value===value)return value;
       if(!this.owner){
         save(this.storage,value);
@@ -124,15 +135,18 @@
     }
     async sync(client,owner,valid,onChange,onConflict){
       if(this.owner!==owner||!valid())return;
+      if(this.refresh())onChange?.(this.value);
       const {data,error}=await client.from('simpledo_preferences')
         .select('name,value,revision').eq('user_id',owner).limit(1);
       if(error)throw error;
       if(this.owner!==owner||!valid())return;
+      if(this.refresh())onChange?.(this.value);
       if(!Array.isArray(data)||data.length>1)throw Error('Invalid preference response.');
       const remote=data[0]||null;
       if(remote&&(remote.name!==NAME||!allowed(remote.value)||
         !Number.isSafeInteger(remote.revision)||remote.revision<1))
         throw Error('Invalid cloud preference; local selection has been preserved.');
+      if(remote&&remote.revision<this.state.revision)return;
       let local=this.state;
       let changed=false;
       if(remote){
@@ -159,9 +173,11 @@
       });
       if(writeError)throw writeError;
       if(this.owner!==owner||!valid())return;
+      if(this.refresh())onChange?.(this.value);
       if(!result||result.name!==NAME||!allowed(result.value)||
         !Number.isSafeInteger(result.revision)||result.revision<1||typeof result.conflict!=='boolean')
         throw Error('Invalid cloud preference response.');
+      if(result.revision<this.state.revision)return;
       if(this.sequence!==startSequence){
         // A different selection was made while the network request was in flight.
         // Rebase the latest selection, leave it pending and retry on the next poll.

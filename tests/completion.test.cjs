@@ -167,3 +167,29 @@ test('new devices adopt existing account preference before uploading old local p
   assert.equal(pref.pending,false);
   assert.equal(server.get('owner').revision,8,'no rewrite of the cloud preference');
 });
+test('a stale tab preserves and uploads another tab\'s queued offline preference',async()=>{
+  const server=new Map(),storage=memory(),a=new completion.PreferenceStore(storage),b=new completion.PreferenceStore(storage);
+  a.bind('owner');b.bind('owner');a.set('48-hours');
+  await b.sync(prefClient(server,'owner'),'owner',()=>true);
+  assert.equal(server.get('owner').value,'48-hours');assert.equal(b.value,'48-hours');
+  a.refresh();assert.equal(a.pending,false);
+});
+test('a selection made in another tab during upload stays queued at the acknowledged revision',async()=>{
+  const server=new Map(),storage=memory(),a=new completion.PreferenceStore(storage),b=new completion.PreferenceStore(storage);
+  a.bind('owner');b.bind('owner');a.set('48-hours');
+  const client=prefClient(server,'owner'),rpc=client.rpc.bind(client);let release,started;
+  const ready=new Promise(resolve=>started=resolve);
+  client.rpc=async(...args)=>{const result=await rpc(...args);started();await new Promise(resolve=>release=resolve);return result;};
+  const pending=a.sync(client,'owner',()=>true);await ready;b.set('5-days');release();await pending;
+  assert.equal(a.value,'5-days');assert.equal(a.pending,true);assert.equal(a.state.revision,1);
+  await a.sync(prefClient(server,'owner'),'owner',()=>true);assert.equal(server.get('owner').value,'5-days');
+});
+test('an old read cannot regress a newer preference acknowledged in another tab',async()=>{
+  const server=new Map(),storage=memory(),a=new completion.PreferenceStore(storage),b=new completion.PreferenceStore(storage);
+  a.bind('owner');b.bind('owner');a.set('48-hours');await a.sync(prefClient(server,'owner'),'owner',()=>true);
+  let release,started;const ready=new Promise(resolve=>started=resolve),client=prefClient(server,'owner'),from=client.from.bind(client);
+  client.from=(...args)=>{const query=from(...args),limit=query.limit.bind(query);query.limit=async(...args)=>{const result=await limit(...args);started();await new Promise(resolve=>release=resolve);return result;};return query;};
+  const pending=a.sync(client,'owner',()=>true);await ready;
+  b.set('3-days');await b.sync(prefClient(server,'owner'),'owner',()=>true);release();await pending;
+  assert.equal(a.value,'3-days');assert.equal(a.state.revision,2);assert.equal(a.pending,false);
+});

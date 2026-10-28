@@ -143,3 +143,18 @@ test('missing preferences migration cannot block normal task syncing',async()=>{
  assert.equal(a.preferences.pending,true,'preference remains queued for later retry');
  assert.equal(a.$('syncStatus').textContent,'Preference needs attention');
 });
+test('signed-in devices retrieve and change account preferences before task merge consent',async()=>{
+ const server=new Map(),a=device(server,[task('private-local')]),b=device(server);await settle();
+ a.signIn('owner');a.preferences.set('48-hours');await a.controller.sync();
+ assert.equal(server.get('owner:preference').value,'48-hours');assert.equal(server.has('owner:private-local'),false);
+ b.signIn('owner');await b.controller.sync();assert.equal(b.preferences.value,'48-hours');
+ b.preferences.set('3-days');await b.controller.sync();await a.controller.sync();assert.equal(a.preferences.value,'3-days');
+ assert.equal(a.controller.allowed,false);assert.equal(a.store.live()[0].id,'private-local');
+});
+test('unreadable account preference is preserved and cannot block task synchronization',async()=>{
+ const server=new Map(),a=device(server,[task('keep')]);await settle();
+ const key=a.preferences.accountKey('owner');a.store.storage.setItem(key,'unreadable bytes');
+ a.signIn('owner');a.controller.enable();await a.controller.sync();
+ assert.equal(server.get('owner:keep').payload.title,'keep');assert.equal(a.store.storage.getItem(key),'unreadable bytes');
+ assert.equal(a.preferences.owner,null);assert.equal(a.$('syncStatus').textContent,'Preference needs attention');
+});

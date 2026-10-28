@@ -452,7 +452,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(await retentionPage.locator('#inboxCompletedVisibility').inputValue(),'indefinitely');
     const beforePreference=await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
     await retentionPage.locator('#inboxCompletedVisibility').selectOption('48-hours');
-    assert.match(await retentionPage.locator('#inboxVisibilityStatus').innerText(),/Saved locally.*enable sync/);
+    assert.match(await retentionPage.locator('#inboxVisibilityStatus').innerText(),/Saved locally.*Sign in/);
     await retentionPage.locator('#closeSettings').click();
     let inboxText=await retentionPage.locator('#inboxTasks').innerText();
     assert.match(inboxText,/Fresh completed Inbox/);

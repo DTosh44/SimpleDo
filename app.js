@@ -1253,7 +1253,7 @@
         inboxCompletedVisibility=completionPreferences.set(event.target.value);
         $('inboxVisibilityStatus').textContent=completionPreferences.owner
           ? 'Preference saved. It will sync across your devices.'
-          : 'Saved locally. Sign in and enable sync to use on other devices.';
+          : 'Saved locally. Sign in to use on other devices.';
         if(['planner','inbox'].includes(activeView)) renderInbox();
         cloud?.schedule();
       } catch (_) {
