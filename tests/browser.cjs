@@ -270,6 +270,40 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
       await capacityPage.locator('#saveTaskButton').click();
     }
     await createTagged('Buy groceries','home','60',tuesday);await createTagged('Review budget','work');
+    // Inbox-local search and tag filtering must not hide or mutate scheduled days.
+    await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).first().click();
+    await capacityPage.locator('#taskNotes').fill('Quarterly spending for the board');
+    await capacityPage.locator('#saveTaskButton').click();
+    const beforeInboxFilter=await capacityPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
+    const scheduledBeforeInboxFilter=await capacityPage.locator('#day-'+tuesday+' .task-card').count();
+    assert.ok(scheduledBeforeInboxFilter>0,'a scheduled task remains beside the Inbox');
+    await capacityPage.locator('#inboxSearchInput').fill('QUARTERLY');
+    assert.match(await capacityPage.locator('#inboxTasks').innerText(),/Review budget/,'Inbox search matches notes case-insensitively');
+    await capacityPage.locator('#inboxTagFilter').selectOption('work');
+    assert.match(await capacityPage.locator('#inboxTasks').innerText(),/Review budget/,'tag and text filters combine');
+    await capacityPage.locator('#inboxTagFilter').selectOption('home');
+    assert.match(await capacityPage.locator('#inboxTasks').innerText(),/No Inbox tasks match these filters/);
+    assert.equal(await capacityPage.locator('#day-'+tuesday+' .task-card').count(),scheduledBeforeInboxFilter,'dated tasks remain visible in the DOM');
+    assert.equal(await capacityPage.locator('#tagFilter').inputValue(),'','global filter was not modified');
+    assert.equal(await capacityPage.locator('#sidebarInboxCount').innerText(),'1','total Inbox count stays unfiltered');
+    assert.match(await capacityPage.locator('#inboxFilterSummary').innerText(),/Showing 0 of 1 tasks/);
+    await capacityPage.locator('#clearInboxFilters').click();
+    assert.equal(await capacityPage.locator('#inboxSearchInput').inputValue(),'');
+    assert.equal(await capacityPage.locator('#inboxTagFilter').inputValue(),'');
+    assert.match(await capacityPage.locator('#inboxFilterSummary').innerText(),/Showing 1 of 1 tasks/);
+    assert.equal(await capacityPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),beforeInboxFilter,'UI filters never change local task data');
+    await capacityPage.locator('[data-nav="inbox"]').click();
+    assert.equal(await capacityPage.locator('#inboxSearchInput').isVisible(),true,'Inbox-only view retains search');
+    await capacityPage.locator('#inboxTagFilter').selectOption('work');
+    assert.match(await capacityPage.locator('#inboxTasks').innerText(),/Review budget/);
+    await capacityPage.locator('#clearInboxFilters').click();
+    await capacityPage.locator('[data-nav="planner"]').click();
+    await capacityPage.setViewportSize({width:390,height:844});
+    for(const selector of ['#inboxSearchInput','#inboxTagFilter']){
+      const rect=await capacityPage.locator(selector).boundingBox();
+      assert.ok(rect&&rect.x>=0&&rect.x+rect.width<=390,selector+' stays within mobile width');
+    }
+    await capacityPage.setViewportSize({width:1440,height:1000});
     assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).count(),1);
     assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Home'}).locator('.tag-dot').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(239, 155, 45)');
     assert.match(await capacityPage.locator('#day-'+tuesday+' .capacity-text').innerText(),/1h other time/);
@@ -281,6 +315,9 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     await capacityPage.locator('#taskTags input[data-tag-id="'+customId+'"]').check();
     await capacityPage.locator('#saveTaskButton').click();
     assert.equal(await capacityPage.locator('#workspace .task-tag').filter({hasText:'Garden'}).count(),2);
+    await capacityPage.locator('#inboxTagFilter').selectOption(customId);
+    assert.match(await capacityPage.locator('#inboxTasks').innerText(),/Review budget/,'Inbox tag filter matches any assigned custom tag');
+    await capacityPage.locator('#clearInboxFilters').click();
     await capacityPage.locator('#tagFilter').selectOption('work');assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),0);
     await capacityPage.locator('#tagFilter').selectOption('home');assert.match(await capacityPage.locator('#inboxTasks').innerText(),/No Inbox tasks with this tag/);assert.equal(await capacityPage.getByRole('button',{name:'Edit Buy groceries',exact:true}).count(),2);assert.equal(await capacityPage.getByRole('button',{name:'Edit Review budget',exact:true}).count(),0);
     await capacityPage.locator('#tagFilter').selectOption(customId);assert.equal(await capacityPage.getByRole('button',{name:'Edit Plant bulbs',exact:true}).count(),2);
