@@ -14,14 +14,15 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=31">
+  <link rel="stylesheet" href="./styles.css?v=32">
   <script src="./tags.js?v=15" defer></script>
   <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
   <script src="./data.js?v=14" defer></script>
   <script src="./config.js?v=10" defer></script>
   <script src="./vendor/supabase.js" defer></script>
-  <script src="./cloud.js?v=14" defer></script>
+  <script src="./auth-ui.js?v=1" defer></script>
+  <script src="./cloud.js?v=15" defer></script>
   <script src="./calendar.js?v=13" defer></script>
   <script src="./planning.js?v=13" defer></script>
   <script src="./snapshot.js?v=16" defer></script>
@@ -31,6 +32,36 @@
   <script src="./app.js?v=24" defer></script>
 </head>
 <body>
+  <dialog id="authDialog" class="auth-dialog" aria-labelledby="authHeading" aria-describedby="authDescription">
+    <div class="auth-layout">
+      <aside class="auth-story" aria-label="Welcome to SimpleDo">
+        <div class="auth-brand"><img src="./simpledo-icon-v3.svg" width="36" height="36" alt=""><strong>simpledo<span>.</span></strong></div>
+        <div class="auth-story-copy"><p class="auth-eyebrow">A LITTLE SPACE FOR YOUR DAY</p><h1>Plan it. <br>Forget it. <br><span>Do it.</span></h1><p>A quieter place for everything<br>you want to get done.</p></div>
+        <div class="auth-preview" aria-hidden="true"><span class="auth-preview-label">YOUR DAY, A LITTLE LIGHTER</span><div><i class="auth-preview-check">✓</i><span>Make room for what matters</span></div><div><i></i><span>One thing at a time</span><b>Focus</b></div></div>
+        <p class="auth-story-footer">Your tasks. Your pace.</p>
+      </aside>
+      <section class="auth-card">
+        <div class="auth-card-inner">
+          <div id="authTabs" class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" id="authTabsignin" role="tab" aria-controls="authPanel" aria-selected="true">Sign in</button><button type="button" id="authTabsignup" role="tab" aria-controls="authPanel" aria-selected="false" tabindex="-1">Create account</button></div>
+          <div id="authPanel" role="tabpanel" aria-labelledby="authHeading">
+            <h2 id="authHeading">Welcome back.</h2><p id="authDescription" class="auth-description">Sign in to pick up where you left off.</p>
+            <form id="authForm">
+              <div id="authEmailField" class="auth-field"><label for="authEmail">Email address</label><input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com" maxlength="254"></div>
+              <div id="authPasswordField" class="auth-field"><label for="authPassword">Password</label><div class="auth-password"><input id="authPassword" type="password" autocomplete="current-password" required maxlength="128"><button type="button" id="authShowPassword" aria-controls="authPassword" aria-pressed="false">Show</button></div></div>
+              <p id="authPasswordHint" class="auth-password-hint" hidden>Use at least 12 characters. A unique passphrase works well.</p>
+              <div id="authConfirmField" class="auth-field" hidden><label for="authConfirm">Confirm password</label><input id="authConfirm" type="password" autocomplete="new-password" maxlength="128"></div>
+              <button type="submit" id="authSubmit" class="button auth-primary">Sign in</button>
+            </form>
+            <div id="authAlternatives" class="auth-alternatives"><button type="button" id="authForgot">Forgot password?</button><button type="button" id="authMagic">Email me a sign-in link</button></div>
+            <div id="authMergePanel" hidden><p id="authMergeDescription" class="auth-merge-description"></p><button id="authMerge" type="button" class="button auth-primary">Merge safely and continue</button></div>
+            <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+            <button type="button" id="authBack" class="auth-text-button" hidden>Back to sign in</button>
+          </div>
+          <div class="auth-local"><button type="button" id="authLocal">Continue without an account <span aria-hidden="true">→</span></button><p>Start on this device. Your tasks stay here.<br>You can sign in and sync whenever you’re ready.</p></div>
+        </div>
+      </section>
+    </div>
+  </dialog>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Main navigation">
       <a class="brand" href="#planner" id="brandLink" aria-label="SimpleDo home">
@@ -256,7 +287,9 @@
       <section class="settings-section" aria-labelledby="accountHeading">
         <h3 id="accountHeading">Account</h3>
         <p id="accountMessage">Use SimpleDo locally. Cloud sync is optional.</p>
-        <form id="signInForm" hidden><label class="field-label" for="accountEmail">Email</label><input id="accountEmail" class="field-input" type="email" required autocomplete="email" placeholder="you@example.com"><button class="button button-dark" type="submit">Send sign-in link</button><p class="focus-hint">A secure link signs you in or creates your account. Open it on this device.</p></form>
+        <button type="button" class="button button-dark" id="openAccount" hidden>Sign in or create account</button>
+        <details id="accountMagicDetails" hidden><summary>Use an email sign-in link</summary><form id="signInForm" hidden><label class="field-label" for="accountEmail">Email</label><input id="accountEmail" class="field-input" type="email" required autocomplete="email" placeholder="you@example.com"><button class="button button-dark" type="submit">Send sign-in link</button><p class="focus-hint">Already have an account? Open the link in this browser on this device.</p></form></details>
+        <button type="button" class="button button-outline" id="setPassword" hidden>Set or change password</button>
         <button class="button button-outline" id="signOut" hidden>Sign out</button>
         <div id="mergeAccount" hidden><p>Merge this browser’s tasks with this account? No tasks will be removed. Keep local to pause sync on this device. Switching accounts can copy these tasks to the new account.</p><button class="button button-dark" id="enableSync">Merge and enable sync</button><button class="button button-outline" id="keepLocal">Keep local</button></div>
         <p id="accountError" role="status"></p>

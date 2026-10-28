@@ -32,6 +32,7 @@ const server=http.createServer((req,res)=>{
    const bytes=await response.body(),size=Number(icon.sizes.split('x')[0]);
    assert.equal(bytes.readUInt32BE(16),size);assert.equal(bytes.readUInt32BE(20),size);
   }
+  await page.getByRole('button',{name:'Continue without an account'}).click();
   await page.locator('#quickTaskInput').fill('Production fixture retained offline');
   await page.locator('#quickAddForm button[type=submit]').click();
   const before=await page.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
