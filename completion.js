@@ -50,6 +50,7 @@
   // Store the active preference per authenticated user, without putting it in task data.
   // Anonymous/legacy choice remains a seed only, never an overwrite of existing cloud state.
   const ACCOUNT_KEY_PREFIX='simpledo.inboxCompletedVisibility.account.v1.';
+  const GUEST_SEEDED_KEY='simpledo.inboxCompletedVisibility.initialAccount.v1';
   const NAME='inbox_completed_visibility';
   const allowed=value=>CHOICES.some(choice=>choice.value===value);
   function validateAccountState(value) {
@@ -78,10 +79,15 @@
         if(!state)throw Error('Saved completed-task preference is unreadable. Existing data has been preserved.');
       } else {
         const guest=this.storage.getItem(KEY);
-        state={value:normalize(guest),revision:0,dirty:false,seed:allowed(guest)};
-        // A local choice seeds an *empty* cloud preference, not an existing account.
+        const alreadySeeded=this.storage.getItem(GUEST_SEEDED_KEY);
+        const seed=alreadySeeded===null&&allowed(guest);
+        state={value:seed?guest:DEFAULT,revision:0,dirty:false,seed};
+        // An anonymous choice can seed the *first* account only, and never overrides cloud.
         this.storage.setItem(this.accountKey(owner),JSON.stringify(state));
+        if(alreadySeeded===null)this.storage.setItem(GUEST_SEEDED_KEY,owner);
       }
+      if(this.storage.getItem(GUEST_SEEDED_KEY)===null)
+        this.storage.setItem(GUEST_SEEDED_KEY,owner);
       this.owner=owner;this.state=state;this.sequence++;
       return true;
     }
