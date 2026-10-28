@@ -53,8 +53,9 @@ test('two devices sync creation, offline edits, completion, preference and delet
  assert.equal(new Store(b.store.storage).load([])[0].title,'Edited offline');
  b.sandbox.navigator.onLine=true; await b.controller.sync(); await a.controller.sync();
  assert.equal(a.store.live()[0].title,'Edited offline');
- a.store.commit([{...a.store.live()[0],completed:true,focusMinutes:60,estimateMinutes:120,main:true,date:'2030-01-01'}]);
- await a.controller.sync(); await b.controller.sync(); assert.equal(b.store.live()[0].focusMinutes,60);assert.equal(b.store.live()[0].estimateMinutes,120); assert.equal(b.store.live()[0].completed,true);
+ const finishedAt='2026-10-28T12:00:00.000Z';
+ a.store.commit([{...a.store.live()[0],completed:true,completedAt:finishedAt,focusMinutes:60,estimateMinutes:120,main:true,date:'2030-01-01'}]);
+ await a.controller.sync(); await b.controller.sync(); assert.equal(b.store.live()[0].focusMinutes,60);assert.equal(b.store.live()[0].estimateMinutes,120); assert.equal(b.store.live()[0].completed,true);assert.equal(b.store.live()[0].completedAt,finishedAt,'completion timestamp syncs with the task');
  a.store.commit([]); await a.controller.sync(); await b.controller.sync(); assert.equal(b.store.live().length,0);
 });
 test('concurrent edits recover local copy, retry uploads it, and sign-out pauses networking',async()=>{
