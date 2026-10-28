@@ -59,3 +59,111 @@ test('visibility preference is stored locally, invalid values fall back safely',
   assert.equal(completion.read({getItem:()=> 'bogus'}),'indefinitely');
   assert.equal(completion.read({getItem:()=>{throw Error('blocked');}}),'indefinitely');
 });
+
+function memory(initial={}) {
+  const records=new Map(Object.entries(initial));
+  return {getItem:key=>records.has(key)?records.get(key):null,
+    setItem:(key,value)=>records.set(key,String(value))};
+}
+function prefClient(server,owner){
+  return {
+    from(table){
+      assert.equal(table,'simpledo_preferences');
+      let queriedOwner=null;
+      return {select(fields){assert.equal(fields,'name,value,revision');return this;},
+        eq(key,value){assert.equal(key,'user_id');queriedOwner=value;return this;},
+        async limit(count){
+          assert.equal(count,1);assert.equal(queriedOwner,owner);
+          const row=server.get(owner);
+          return {data:row?[{...row}]:[],error:null};
+        }};
+    },
+    async rpc(name,args){
+      assert.equal(name,'sync_simpledo_preference');
+      assert.equal(args.preference_name,'inbox_completed_visibility');
+      let row=server.get(owner),conflict=false;
+      if(!row){
+        if(args.expected_revision!==0)return {data:null,error:Error('Preference history missing')};
+        row={name:'inbox_completed_visibility',value:args.preference_value,revision:1};
+      }else if(row.value===args.preference_value){} // duplicate request
+      else if(row.revision!==args.expected_revision)conflict=true;
+      else row={...row,value:args.preference_value,revision:row.revision+1};
+      server.set(owner,{...row});
+      return {data:{...row,conflict},error:null};
+    }
+  };
+}
+
+test('signed-in preference synchronises across devices, persists after reload and works offline',async()=>{
+  const server=new Map(),storageA=memory(),storageB=memory();
+  const a=new completion.PreferenceStore(storageA),b=new completion.PreferenceStore(storageB);
+  assert.equal(a.value,'indefinitely');assert.equal(b.value,'indefinitely');
+  a.bind('account-1');b.bind('account-1');
+  const valid=()=>true;let refreshedB=0;
+  a.set('48-hours');
+  assert.equal(a.pending,true,'offline selection remains in storage');
+  await a.sync(prefClient(server,'account-1'),'account-1',valid);
+  assert.equal(server.get('account-1').value,'48-hours');assert.equal(a.pending,false);
+  await b.sync(prefClient(server,'account-1'),'account-1',valid,()=>refreshedB++);
+  assert.equal(b.value,'48-hours');assert.equal(refreshedB,1,'remote update notifies the UI');
+  b.set('3-days');
+  await b.sync(prefClient(server,'account-1'),'account-1',valid);
+  await a.sync(prefClient(server,'account-1'),'account-1',valid);
+  assert.equal(a.value,'3-days');assert.equal(b.value,'3-days');
+  b.set('end-of-day'); // disconnected before write
+  assert.equal(b.pending,true);
+  const reloaded=new completion.PreferenceStore(storageB);reloaded.bind('account-1');
+  assert.equal(reloaded.value,'end-of-day');assert.equal(reloaded.pending,true);
+  await reloaded.sync(prefClient(server,'account-1'),'account-1',valid);
+  await a.sync(prefClient(server,'account-1'),'account-1',valid);
+  assert.equal(a.value,'end-of-day');
+  assert.equal(reloaded.pending,false);
+});
+
+test('stale offline preference cannot silently overwrite a newer cloud choice',async()=>{
+  const server=new Map(),a=new completion.PreferenceStore(memory()),b=new completion.PreferenceStore(memory());
+  a.bind('account-1');b.bind('account-1');a.set('48-hours');
+  await a.sync(prefClient(server,'account-1'),'account-1',()=>true);
+  await b.sync(prefClient(server,'account-1'),'account-1',()=>true);
+  b.set('end-of-day'); // offline device
+  a.set('5-days');
+  await a.sync(prefClient(server,'account-1'),'account-1',()=>true);
+  const messages=[];
+  await b.sync(prefClient(server,'account-1'),'account-1',()=>true,null,message=>messages.push(message));
+  assert.equal(b.value,'5-days','cloud choice wins a stale edit');
+  assert.equal(b.pending,false);
+  assert.match(messages[0],/another device/i);
+});
+
+test('account switching neither leaks nor overwrites preferences',async()=>{
+  const server=new Map(),storage=memory(),device=new completion.PreferenceStore(storage);
+  completion.save(storage,'48-hours'); // a pre-existing local preference
+  device.bind('owner-one');
+  await device.sync(prefClient(server,'owner-one'),'owner-one',()=>true);
+  assert.equal(server.get('owner-one').value,'48-hours','one-time guest preference migrates');
+  device.unbind();
+  device.bind('owner-two');
+  assert.equal(device.value,'indefinitely','new account does not inherit another account choice');
+  assert.equal(device.pending,false);
+  await device.sync(prefClient(server,'owner-two'),'owner-two',()=>true);
+  assert.equal(server.has('owner-two'),false,'default choice does not create unrequested account row');
+  device.set('5-days');
+  await device.sync(prefClient(server,'owner-two'),'owner-two',()=>true);
+  assert.equal(server.get('owner-two').value,'5-days');
+  device.unbind();device.bind('owner-one');
+  assert.equal(device.value,'48-hours','return to the first account restores its own choice');
+  await device.sync(prefClient(server,'owner-one'),'owner-one',()=>true);
+  assert.equal(server.get('owner-one').value,'48-hours');
+});
+
+test('new devices adopt existing account preference before uploading old local preferences',async()=>{
+  const server=new Map([['owner',{name:'inbox_completed_visibility',value:'3-days',revision:8}]]);
+  const storage=memory();completion.save(storage,'5-days');
+  const pref=new completion.PreferenceStore(storage);
+  pref.bind('owner');
+  assert.equal(pref.value,'5-days','legacy choice can be considered locally');
+  await pref.sync(prefClient(server,'owner'),'owner',()=>true);
+  assert.equal(pref.value,'3-days','the existing account wins the initial reconciliation');
+  assert.equal(pref.pending,false);
+  assert.equal(server.get('owner').revision,8,'no rewrite of the cloud preference');
+});
