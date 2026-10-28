@@ -14,11 +14,12 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=31">
+  <link rel="stylesheet" href="./styles.css?v=32">
   <script src="./tags.js?v=15" defer></script>
   <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
-  <script src="./data.js?v=14" defer></script>
+  <script src="./data.js?v=15" defer></script>
+  <script src="./completion.js?v=1" defer></script>
   <script src="./config.js?v=10" defer></script>
   <script src="./vendor/supabase.js" defer></script>
   <script src="./cloud.js?v=14" defer></script>
@@ -28,7 +29,7 @@
   <script src="./capture.js?v=17" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=24" defer></script>
+  <script src="./app.js?v=25" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -81,6 +82,12 @@
             </div>
             <div id="todayView" class="today-view" hidden>
               <p id="todayFilterNote" class="today-filter-note" hidden></p>
+              <section id="todayWins" class="today-wins" aria-label="Today's wins" hidden>
+                <p class="today-wins-kicker">Today's wins</p>
+                <div class="today-wins-headline"><strong id="todayWinsCount">0</strong><span id="todayWinsLabel">tasks completed today</span></div>
+                <p id="todayWinsMessage" class="today-wins-message"></p>
+                <ul id="todayWinsRecent" class="today-wins-recent" aria-label="Recently completed tasks"></ul>
+              </section>
               <section id="todayFeatured" aria-label="Featured task"></section>
               <section id="todayAlsoSection" class="today-also" aria-labelledby="todayAlsoHeading"><div class="today-section-heading"><h2 id="todayAlsoHeading">Also today</h2><span id="todayAlsoCount"></span></div><div id="todayTasks" class="today-list"></div></section>
               <details id="todayCompleted" class="today-completed"><summary>Completed <span id="todayCompletedCount">(0)</span></summary><div id="todayCompletedTasks" class="today-list"></div></details>
@@ -276,6 +283,19 @@
       <div class="calendar-provider"><strong>Outlook / Microsoft 365</strong><span class="provider-status" id="provider-outlook">Not connected</span><div class="backup-actions"><button class="button button-outline" id="connect-outlook" disabled>Connect</button><button class="button button-outline" id="disconnect-outlook" hidden>Disconnect Outlook</button></div><div class="calendar-choices" id="choices-outlook" hidden></div><button class="button button-outline" id="save-outlook" hidden>Use selected Outlook calendars</button></div>
       <div class="calendar-provider"><strong>Google Calendar</strong><span class="provider-status" id="provider-google">Not connected</span><div class="backup-actions"><button class="button button-outline" id="connect-google" disabled>Connect</button><button class="button button-outline" id="disconnect-google" hidden>Disconnect Google</button></div><div class="calendar-choices" id="choices-google" hidden></div><button class="button button-outline" id="save-google" hidden>Use selected Google calendars</button></div>
       <button class="recovery-button" id="refreshCalendar" disabled>Refresh availability</button><p id="calendarMessage" role="status"></p></details></section>
+      <section class="settings-section" aria-labelledby="completedTasksSettingsHeading">
+        <h3 id="completedTasksSettingsHeading">Completed tasks</h3>
+        <label class="field-label" for="inboxCompletedVisibility">Keep completed tasks visible in Inbox for</label>
+        <select class="field-input" id="inboxCompletedVisibility">
+          <option value="end-of-day">End of the day</option>
+          <option value="48-hours">48 hours</option>
+          <option value="3-days">3 days</option>
+          <option value="5-days">5 days</option>
+          <option value="indefinitely">Indefinitely</option>
+        </select>
+        <p class="focus-hint">Completed tasks are only hidden from the Inbox, never deleted. They still count in Snapshot and appear in your scheduled-day history. Earlier completions without a recorded date remain visible. This display preference is saved on this device.</p>
+        <p id="inboxVisibilityStatus" role="status"></p>
+      </section>
       <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>
     </div>
   </dialog>
