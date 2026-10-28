@@ -76,7 +76,8 @@
   let renderedToday = null;
   let lastObservedDay = todayKey();
   let query = "";
-  let inboxCompletedVisibility = SimpleDoCompletion.read(localStorage);
+  const completionPreferences = new SimpleDoCompletion.PreferenceStore(localStorage);
+  let inboxCompletedVisibility = completionPreferences.value;
   let lastInboxVisibleCount = null;
   let lastInboxVisibilityMinute = -1;
   // Inbox-only discovery filters stay separate from the all-task header search and tag filter.
@@ -1249,9 +1250,12 @@
     $('inboxCompletedVisibility').value=inboxCompletedVisibility;
     $('inboxCompletedVisibility').addEventListener('change',event=>{
       try {
-        inboxCompletedVisibility=SimpleDoCompletion.save(localStorage,event.target.value);
-        $('inboxVisibilityStatus').textContent='Preference saved on this device.';
+        inboxCompletedVisibility=completionPreferences.set(event.target.value);
+        $('inboxVisibilityStatus').textContent=completionPreferences.owner
+          ? 'Preference saved. It will sync across your devices.'
+          : 'Saved locally. Sign in and enable sync to use on other devices.';
         if(['planner','inbox'].includes(activeView)) renderInbox();
+        cloud?.schedule();
       } catch (_) {
         event.target.value=inboxCompletedVisibility;
         $('inboxVisibilityStatus').textContent='Could not save this preference. Please try again.';
@@ -1540,6 +1544,12 @@
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
     tags: tagCatalog,
+    preferences: completionPreferences,
+    preferencesChanged() {
+      inboxCompletedVisibility=completionPreferences.value;
+      $('inboxCompletedVisibility').value=inboxCompletedVisibility;
+      if(['planner','inbox'].includes(activeView))renderInbox();
+    },
     tagsChanged() { tagUI.refresh(); render(); },
     accountChanged: (client, user) => { planning?.account(client, user); capture?.account(client, user); },
     changed(next) {
