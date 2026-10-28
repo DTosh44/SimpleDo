@@ -1,7 +1,7 @@
 /* Cache only the app shell, never auth requests, tokens, backups or cloud data. */
-const CACHE = 'simpledo-shell-v33';
-const FILES = ['./', './index.html', './styles.css?v=30', './data.js?v=14', './config.js?v=10',
-  './vendor/supabase.js', './capacity.js?v=13', './tags.js?v=15', './tag-ui.js?v=19', './calendar.js?v=13', './planning.js?v=13', './cloud.js?v=14', './app.js?v=23', './favicon.ico?v=3', './simpledo-icon-v3.svg', './snapshot.js?v=16', './capture.js?v=17', './capture-ui.js?v=15', './daily.js?v=17',
+const CACHE = 'simpledo-shell-v34';
+const FILES = ['./', './index.html', './styles.css?v=31', './data.js?v=14', './config.js?v=10',
+  './vendor/supabase.js', './capacity.js?v=13', './tags.js?v=15', './tag-ui.js?v=19', './calendar.js?v=13', './planning.js?v=13', './cloud.js?v=14', './app.js?v=24', './favicon.ico?v=3', './simpledo-icon-v3.svg', './snapshot.js?v=16', './capture.js?v=17', './capture-ui.js?v=15', './daily.js?v=17',
   './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
