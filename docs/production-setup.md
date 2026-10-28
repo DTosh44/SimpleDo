@@ -1,5 +1,7 @@
 # SimpleDo production setup
 
+This records the initial backend setup. The [authentication acceptance guide](auth-acceptance.md) describes the subsequent password/onboarding release, current flow and newer live-provider evidence.
+
 Audit and provider checks: 28 October 2026. Release base: `932a58f` on `DTosh44/SimpleDo/main`.
 
 ## Configured backend
@@ -47,7 +49,7 @@ Sources: [Supabase SMTP limits/setup](https://supabase.com/docs/guides/auth/auth
 
 - Local tasks and queued changes stay in `simpledo.data.v2`. Existing legacy bytes remain in `simpledo.tasks.v1` and the pre-upgrade recovery copy. This release does not change the storage format or rewrite existing tasks.
 - Fresh cloud-configured browsers now start empty, preventing separate devices from generating/uploading separate sample task IDs. Previously saved sample tasks are preserved; use **Remove samples** deliberately before enabling sync if appropriate.
-- Signing in alone does not upload local tasks. **Merge and enable sync** makes a recovery checkpoint and binds the browser to the account. Switching accounts requires another explicit merge. Sign-out preserves local tasks and account binding; use separate browser profiles for different people/accounts.
+- Signing in on an empty unbound device now automatically downloads cloud tasks. Local task/tag/deletion history or another account binding requires explicit merge consent. **Merge and enable sync** makes a recovery checkpoint and binds the browser to the account. Switching accounts requires another explicit merge. Sign-out preserves local tasks and account binding; use separate browser profiles for different people/accounts.
 - Task/tag changes persist before upload. Pending writes survive reload/offline use. Reconciliation is paginated, includes tombstones, and uses server revisions rather than device clocks. Visible clients poll about every five seconds and on edits/reconnect/visibility changes.
 - Task conflicts preserve the cloud version at its ID and recover different local edits under a separate ID. Stale deletes cannot erase newer edits. Tag conflicts retain server metadata; tag deletion wins stale renames without deleting tasks. Tag failures do not block task sync.
 - Backup **Merge** adds unknown IDs and respects existing edits/deletions. Repeating the same restore does not duplicate tasks. **Replace** requires confirmation and can propagate removals to the account; avoid it during migration. Recovery checkpoint failure prevents replacement. Unknown task fields survive backup/sync.
@@ -91,6 +93,6 @@ The Supabase free project can pause after inactivity; this is a reliability limi
 
 1. Keep your existing JSON backup and old browser data. After the approved deployment, open **https://simpledo.co.uk/**. Check the HTTPS address; HTTP and old-host browser storage do not transfer automatically.
 2. On **one primary device**, choose **Settings → Import backup → Merge with existing tasks**. Use the full backup importer, not Inbox's list importer. Verify tasks/notes/tags and export a fresh backup. Remove only unwanted sample tasks deliberately if any already exist.
-3. In **Settings → Account**, request a sign-in link using the same email you will use everywhere. Open it in that browser. Choose **Merge and enable sync** once and wait for **Saved**, with no account error or tag warning.
-4. On the second device, open the HTTPS address, sign in using a **new link requested on that device**, then choose **Merge and enable sync** and wait for the cloud tasks. Start from an empty browser; do not import the backup again on each device.
+3. In **Settings → Account**, sign in using the same email you will use everywhere (existing passwordless accounts can use a sign-in link and then set a password). Approve the safe merge for your restored local data and wait for **Saved**, with no account error or tag warning.
+4. On the second device, open the HTTPS address, sign in with the same email/password and wait for the cloud tasks. An empty unbound browser connects automatically; no Merge step is needed. If using a magic link, request a new one on that device. Start from an empty browser; do not import the backup again on each device.
 5. Check one small edit in each direction and a reload. Export another backup. If the second device already has unique local work, export it first and merge deliberately; different IDs can represent duplicate titles. Review **Recovered edit** copies rather than repeatedly restoring or replacing data.
