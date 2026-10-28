@@ -481,8 +481,8 @@
     else {
       const empty=document.createElement('div');empty.className='today-empty';
       const title=document.createElement('h2'),text=document.createElement('p');
-      title.textContent=!state.total?'No tasks today':!state.remaining?'All tasks complete':'No matching tasks';
-      text.textContent=!state.total?'Add a task for today.':!state.remaining?'All scheduled tasks are complete.':'Clear the filter to see other tasks.';
+      title.textContent=!state.total?(wins.length?'Nothing scheduled today':'No tasks today'):!state.remaining?'All tasks complete':'No matching tasks';
+      text.textContent=!state.total?(wins.length?'Completed Inbox tasks are included in your wins above.':'Add a task for today.'):!state.remaining?'All scheduled tasks are complete.':'Clear the filter to see other tasks.';
       empty.append(title,text);$('todayFeatured').append(empty);
     }
     $('todayAlsoSection').hidden=!state.others.length;$('todayAlsoCount').textContent=String(state.others.length);
