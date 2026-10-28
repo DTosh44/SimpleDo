@@ -62,6 +62,11 @@
       this.user = user;
       this.hooks.accountChanged?.(this.client, user);
       this.allowed = Boolean(user && this.store.state.owner === user.id);
+      // Account preferences stay isolated by owner; never copy a former user's setting.
+      const preferenceChanged=this.allowed
+        ? this.hooks.preferences?.bind(user.id)
+        : this.hooks.preferences?.unbind();
+      if(preferenceChanged)this.hooks.preferencesChanged?.();
       this.$('signInForm').hidden = Boolean(user);
       this.$('signOut').hidden = !user;
       this.$('mergeAccount').hidden = !user || this.allowed;
@@ -95,7 +100,9 @@
     enable() {
       if (!this.user || this.hooks.canSync?.() === false) return;
       try {
-        this.hooks.changed(this.store.bind(this.user.id)); this.allowed = true;
+        this.hooks.changed(this.store.bind(this.user.id));
+        if(this.hooks.preferences?.bind(this.user.id))this.hooks.preferencesChanged?.();
+        this.allowed = true;
         this.$('mergeAccount').hidden = true; this.schedule();
       } catch (error) { this.error(error); }
     }
@@ -141,11 +148,24 @@
           if (data.length < 500) break;
           after = data[data.length - 1].id;
         }
+        // Sync account-scoped display settings independently of the task queue.
+        // A missing migration cannot prevent tasks from syncing or delete local preferences.
+        let preferenceError = null;
+        if (this.hooks.preferences && valid()) try {
+          await this.hooks.preferences.sync(this.client,owner,valid,
+            () => this.hooks.preferencesChanged?.(),
+            message => this.hooks.notify?.(message));
+        } catch (error) { preferenceError = error; }
         if (valid()) {
-          this.$('accountError').textContent = tagError ? 'Task sync is available; tag sync needs attention. Run the tags migration and check your connection.' : '';
-          const pending = this.store.pending().length;
-          this.status(pending ? 'Syncing' : tagError ? 'Tags need attention' : 'Saved');
-          if (pending) this.schedule();
+          const details=[];
+          if(tagError)details.push('Tag sync needs attention.');
+          if(preferenceError)details.push('Completed-task preference sync needs attention. Check the preferences migration and connection.');
+          this.$('accountError').textContent=details.join(' ');
+          const pending=this.store.pending().length;
+          const prefPending=Boolean(this.hooks.preferences?.pending);
+          this.status(pending || (prefPending && !preferenceError)
+            ? 'Syncing' : preferenceError ? 'Preference needs attention' : tagError ? 'Tags need attention' : 'Saved');
+          if (pending || (prefPending && !preferenceError)) this.schedule();
         }
       } catch (error) { if (valid()) this.error(error); }
       finally { this.busy = false; }
