@@ -5,7 +5,7 @@
   "description": "Local-first minimalist planner with optional Supabase sync",
   "scripts": {
     "test": "node --test tests/*.test.cjs",
-    "test:browser": "node tests/browser.cjs && node tests/capture-browser.cjs && node tests/today-browser.cjs",
+    "test:browser": "node tests/browser.cjs && node tests/capture-browser.cjs && node tests/today-browser.cjs && node tests/production-browser.cjs",
     "test:database": "node tests/database.cjs"
   },
   "devDependencies": {

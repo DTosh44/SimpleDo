@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname,'..');
 const server = http.createServer((req,res) => {
+  if (new URL(req.url,'http://localhost').pathname === '/config.js') { res.setHeader('Content-Type','text/javascript'); return res.end('window.SIMPLEDO_CONFIG = Object.freeze({supabaseUrl: "", supabasePublicKey: ""});'); }
   const file = path.join(root,decodeURIComponent(new URL(req.url,'http://localhost').pathname));
   const name = file.endsWith('/') ? file+'index.html' : file;
   if(!name.startsWith(root+path.sep)) {res.writeHead(403); return res.end();}

@@ -1,7 +1,7 @@
 /* Real Chromium UI, with explicitly simulated speech events and OCR replies. */
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),http=require('node:http'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
-const server=http.createServer((req,res)=>{const file=path.join(root,decodeURIComponent(new URL(req.url,'http://localhost').pathname));const name=file.endsWith('/')?file+'index.html':file;if(!name.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(name,(e,data)=>{if(e){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(data);});});
+const server=http.createServer((req,res)=>{if(new URL(req.url,'http://localhost').pathname==='/config.js'){res.setHeader('Content-Type','text/javascript');return res.end('window.SIMPLEDO_CONFIG = Object.freeze({supabaseUrl: "", supabasePublicKey: ""});');}const file=path.join(root,decodeURIComponent(new URL(req.url,'http://localhost').pathname));const name=file.endsWith('/')?file+'index.html':file;if(!name.startsWith(root+path.sep)){res.writeHead(403);res.end();return;}fs.readFile(name,(e,data)=>{if(e){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':name.endsWith('.css')?'text/css':'text/html');res.end(data);});});
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const base=`http://127.0.0.1:${server.address().port}/`,browser=await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH});
  try{

@@ -1,7 +1,8 @@
 /* Cache only the app shell, never auth requests, tokens, backups or cloud data. */
-const CACHE = 'simpledo-shell-v32';
-const FILES = ['./', './index.html', './styles.css?v=30', './data.js?v=14', './config.js?v=9',
-  './vendor/supabase.js', './capacity.js?v=13', './tags.js?v=15', './tag-ui.js?v=19', './calendar.js?v=13', './planning.js?v=13', './cloud.js?v=13', './app.js?v=22', './favicon.ico?v=3', './simpledo-icon-v3.svg', './snapshot.js?v=16', './capture.js?v=17', './capture-ui.js?v=15', './daily.js?v=17'];
+const CACHE = 'simpledo-shell-v33';
+const FILES = ['./', './index.html', './styles.css?v=30', './data.js?v=14', './config.js?v=10',
+  './vendor/supabase.js', './capacity.js?v=13', './tags.js?v=15', './tag-ui.js?v=19', './calendar.js?v=13', './planning.js?v=13', './cloud.js?v=14', './app.js?v=23', './favicon.ico?v=3', './simpledo-icon-v3.svg', './snapshot.js?v=16', './capture.js?v=17', './capture-ui.js?v=15', './daily.js?v=17',
+  './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
 });
@@ -16,7 +17,7 @@ self.addEventListener('fetch', event => {
   if (event.request.mode !== 'navigate' && !known.includes(url.href)) return;
   event.respondWith(fetch(event.request).then(response => {
     // Auth callback URLs must never enter Cache Storage.
-    if (response.ok && !url.searchParams.has('code') && !url.hash) {
+    if (response.ok && known.includes(url.href) && !url.hash) {
       const clone = response.clone();
       event.waitUntil(caches.open(CACHE).then(cache => cache.put(event.request, clone)));
     }
