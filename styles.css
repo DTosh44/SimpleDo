@@ -799,3 +799,19 @@ body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
 .similar-review-item input {flex:none;width:19px;height:19px;margin:2px 0 0;accent-color:#8e2952;}
 .similar-review-item strong {display:block;font-size:13px;font-weight:650;line-height:1.4;overflow-wrap:anywhere;}
 .similar-review-item small {display:block;color:#666;font-size:12px;line-height:1.5;margin-top:3px;overflow-wrap:anywhere;}
+
+/* Local Inbox discovery controls do not filter or change the adjacent day planner. */
+.inbox-panel > .inbox-filter {flex:0 0 auto;margin:12px 0 13px;min-width:0}
+.inbox-filter-controls {display:flex;gap:7px;align-items:center;min-width:0}
+.inbox-filter-controls input,
+.inbox-filter-controls select {height:36px;min-width:0;border:1px solid #e5e5e5;border-radius:9px;background:#fff;color:#414141;font-size:11px;padding:7px 9px}
+.inbox-filter-controls input {flex:1 1 auto;width:0}
+.inbox-filter-controls select {flex:0 1 115px;width:115px;max-width:46%;padding-left:7px;padding-right:5px}
+.inbox-filter-controls input::placeholder {color:#979797}
+.inbox-filter-controls input:focus-visible,
+.inbox-filter-controls select:focus-visible,
+.inbox-filter-clear:focus-visible {outline:2px solid #8e2952;outline-offset:2px}
+.inbox-filter-footer {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:7px;color:#888;font-size:10px;min-height:19px}
+.inbox-filter-clear {border:0;background:transparent;color:#8e2952;padding:3px 0;cursor:pointer;font-size:10px;font-weight:650;white-space:nowrap}
+.inbox-filter-clear:hover {text-decoration:underline}
+body[data-active-view="inbox"] .inbox-filter {margin-top:17px}

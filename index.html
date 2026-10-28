@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=30">
+  <link rel="stylesheet" href="./styles.css?v=31">
   <script src="./tags.js?v=15" defer></script>
   <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
@@ -28,7 +28,7 @@
   <script src="./capture.js?v=17" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=23" defer></script>
+  <script src="./app.js?v=24" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -105,6 +105,18 @@
               <span class="inbox-import-hint" id="quickAddHint" aria-live="polite">Paste a list — one task per line</span>
               <button type="button" class="inbox-import-button" id="importTasksButton" aria-label="Import tasks from a TXT, Markdown or JSON file into your Inbox">↓ Import .txt / .md / .json</button>
               <input id="importTasksFile" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
+            </div>
+            <div class="inbox-filter" role="search" aria-label="Filter Inbox tasks">
+              <div class="inbox-filter-controls">
+                <label class="sr-only" for="inboxSearchInput">Search Inbox tasks and notes</label>
+                <input id="inboxSearchInput" type="search" placeholder="Search Inbox…" autocomplete="off">
+                <label class="sr-only" for="inboxTagFilter">Filter Inbox by tag</label>
+                <select id="inboxTagFilter" aria-label="Filter Inbox by tag"><option value="">All tags</option></select>
+              </div>
+              <div class="inbox-filter-footer">
+                <span id="inboxFilterSummary" role="status" aria-live="polite"></span>
+                <button type="button" id="clearInboxFilters" class="inbox-filter-clear" hidden>Clear filters</button>
+              </div>
             </div>
             <div id="inboxTasks" class="task-stack" tabindex="0" role="region" aria-label="Inbox tasks — scroll independently"></div>
           </section>
