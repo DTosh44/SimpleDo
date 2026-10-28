@@ -76,6 +76,9 @@
   let renderedToday = null;
   let lastObservedDay = todayKey();
   let query = "";
+  // Inbox-only discovery filters stay separate from the all-task header search and tag filter.
+  let inboxQuery = "";
+  let inboxTag = "";
   let editingId = null;
   let editingSnapshot = null;
   let dialogOpener = null;
@@ -466,16 +469,54 @@
     $('todayCompleted').ontoggle=()=>{if($('todayCompleted').open)fillCompleted();};
   }
 
+  function refreshInboxTagOptions() {
+    const select = $("inboxTagFilter");
+    const options = [
+      {id: "", name: "All tags"},
+      {id: "__untagged__", name: "No tag"},
+      ...(tagUI ? tagUI.tagsInUse() : []).map(tag => ({id: tag.id, name: tag.name}))
+    ];
+    // Keep the active native select intact while results re-render (including on each keystroke).
+    const signature = JSON.stringify(options);
+    if (select.dataset.optionsSignature !== signature) {
+      select.replaceChildren();
+      for (const entry of options) {
+        const option = document.createElement("option");
+        option.value = entry.id;
+        option.textContent = entry.name;
+        select.append(option);
+      }
+      select.dataset.optionsSignature = signature;
+    }
+    if (!options.some(option => option.id === inboxTag)) inboxTag = "";
+    select.value = inboxTag;
+  }
+
   function renderInbox() {
+    // Local Inbox filters do not affect dated tasks, calendar capacity, or global task counts.
     // Preserve the independent Inbox scroll position when tasks update.
     const previousScrollTop = els.inboxTasks.scrollTop;
-    const inbox = sortTasks(matching(tasks.filter((t) => !t.date)));
-    const outstandingCount = tasks.filter((t) => !t.date && !t.completed).length;
+    refreshInboxTagOptions();
+    const source = tasks.filter(task => !task.date);
+    const inbox = sortTasks(matching(source).filter(task => {
+      const ids = SimpleDoTags.taskIds(task);
+      const tagMatch = !inboxTag || (inboxTag === "__untagged__" ? ids.length === 0 : ids.includes(inboxTag));
+      const text = (String(task.title || "") + " " + String(task.notes || "")).toLocaleLowerCase();
+      return tagMatch && (!inboxQuery || text.includes(inboxQuery));
+    }));
+    const outstandingCount = source.filter(task => !task.completed).length;
     els.inboxCount.textContent = String(outstandingCount);
     els.sidebarInboxCount.textContent = String(outstandingCount);
+    $("inboxFilterSummary").textContent = "Showing " + inbox.length + " of " + source.length + " tasks";
+    $("clearInboxFilters").hidden = !inboxQuery && !inboxTag;
     els.inboxTasks.replaceChildren();
     if (inbox.length) {
-      inbox.forEach((t) => els.inboxTasks.append(makeTaskCard(t)));
+      inbox.forEach(task => els.inboxTasks.append(makeTaskCard(task)));
+    } else if (inboxQuery || inboxTag) {
+      const empty = document.createElement("p");
+      empty.className = "no-results";
+      empty.textContent = "No Inbox tasks match these filters.";
+      els.inboxTasks.append(empty);
     } else if (query || tagUI?.filter) {
       const empty = document.createElement("p");
       empty.className = "no-results";
@@ -1278,6 +1319,22 @@
       if (["one-task", "snapshot"].includes(activeView) && event.target.value.trim()) setView("planner");
       query = event.target.value.trim().toLocaleLowerCase();
       render();
+    });
+    // These controls filter only the Inbox list; do not redraw or hide scheduled days.
+    $("inboxSearchInput").addEventListener("input", event => {
+      inboxQuery = event.target.value.trim().toLocaleLowerCase();
+      renderInbox();
+    });
+    $("inboxTagFilter").addEventListener("change", event => {
+      inboxTag = event.target.value;
+      renderInbox();
+    });
+    $("clearInboxFilters").addEventListener("click", () => {
+      inboxQuery = ""; inboxTag = "";
+      $("inboxSearchInput").value = "";
+      $("inboxTagFilter").value = "";
+      renderInbox();
+      $("inboxSearchInput").focus();
     });
     els.moreDaysButton.addEventListener("click", () => {
       daysVisible = Math.min(daysVisible + 30, 365);
