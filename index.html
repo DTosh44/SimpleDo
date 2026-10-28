@@ -293,7 +293,7 @@
           <option value="5-days">5 days</option>
           <option value="indefinitely">Indefinitely</option>
         </select>
-        <p class="focus-hint">Completed tasks are only hidden from the Inbox, never deleted. They still count in Snapshot and appear in your scheduled-day history. Earlier completions without a recorded date remain visible. This display preference is saved on this device.</p>
+        <p class="focus-hint">Completed tasks are hidden from the Inbox after the chosen period, never deleted. They're still counted in Snapshot; scheduled tasks stay on their days. Earlier completions without a recorded finish time remain visible. This display preference is saved on this device.</p>
         <p id="inboxVisibilityStatus" role="status"></p>
       </section>
       <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>
