@@ -815,3 +815,25 @@ body[data-active-view="snapshot"] .full-stop {color:var(--colour-snapshot);}
 .inbox-filter-clear {border:0;background:transparent;color:#8e2952;padding:3px 0;cursor:pointer;font-size:10px;font-weight:650;white-space:nowrap}
 .inbox-filter-clear:hover {text-decoration:underline}
 body[data-active-view="inbox"] .inbox-filter {margin-top:17px}
+
+/* A quiet completion acknowledgement in Today: celebrate actual finished work, not activity streaks. */
+.today-wins {
+  padding:16px 19px;margin:0 0 23px;border:1px solid #efe5dc;border-left:3px solid var(--colour-today);
+  background:#fffbf7;border-radius:13px;color:#35302b;
+}
+.today-wins-kicker {font-size:10px;font-weight:750;letter-spacing:.75px;text-transform:uppercase;color:#926a41;margin:0 0 6px}
+.today-wins-headline {display:flex;align-items:baseline;gap:9px}
+.today-wins-headline strong {font-size:27px;line-height:1.1;letter-spacing:-.8px;font-weight:720;color:#333}
+.today-wins-headline span {font-size:13px;font-weight:650;color:#4b443d}
+.today-wins-message {font-size:12px;line-height:1.5;color:#776c60;margin:5px 0 0}
+.today-wins-recent {list-style:none;display:flex;flex-wrap:wrap;gap:6px 13px;padding:0;margin:12px 0 0}
+.today-wins-recent li {color:#695d50;font-size:11px;min-width:0;max-width:100%;overflow-wrap:anywhere}
+.today-wins-recent li::before {content:'✓';color:#a2763e;margin-right:6px;font-weight:750}
+#inboxCompletedVisibility {max-width:270px;margin:7px 0 8px}
+#inboxVisibilityStatus {font-size:11px;margin:4px 0 0}
+@media(max-width:650px){
+ .today-wins {padding:14px 16px;margin-bottom:18px}
+ .today-wins-headline strong {font-size:25px}
+ .today-wins-recent {display:block}
+ .today-wins-recent li+li {margin-top:6px}
+}
