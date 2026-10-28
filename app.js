@@ -122,7 +122,9 @@
   let saveFailed = false;
   function load() {
     try {
-      tasks = store.load(localStorage.getItem(DEMO_KEY) === "true" ? [] : demoTasks());
+      // A newly connected device starts empty so sample IDs cannot be uploaded
+      // alongside the account's real tasks. Existing storage is always retained.
+      tasks = store.load(localStorage.getItem(DEMO_KEY) === "true" || window.SIMPLEDO_CONFIG?.supabaseUrl ? [] : demoTasks());
       storageReady = true;
       rollover();
     } catch (error) {

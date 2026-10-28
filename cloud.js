@@ -22,6 +22,10 @@
         return;
       }
       try {
+        const pageUrl = new URL(location.href);
+        if (pageUrl.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(pageUrl.hostname)) {
+          throw new Error('Open https://simpledo.co.uk/ to sign in securely. Tasks remain on this device; export a backup before switching addresses.');
+        }
         const url = new URL(config.supabaseUrl);
         if (url.protocol !== 'https:' || !root.supabase) throw new Error('Cloud configuration is unavailable.');
         if (config.supabasePublicKey.startsWith('sb_secret_')) throw new Error('A public Supabase key is required.');

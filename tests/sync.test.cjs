@@ -6,7 +6,7 @@ const T=require('../tags.js');
 const {Store, KEY, same} = require('../data.js');
 class Memory {constructor(){this.data=new Map();}getItem(k){return this.data.get(k)||null;}setItem(k,v){this.data.set(k,v);}}
 const task=(id,title=id)=>({id,title,notes:'',date:null,completed:false,main:false});
-function device(server,initial=[]) {
+function device(server,initial=[],href='https://example.com/SimpleDo/') {
   const store = new Store(new Memory()); store.load(initial);
   const elements = new Map(); const $=id=>{if(!elements.has(id))elements.set(id,{hidden:false,textContent:'',value:'test@example.com',addEventListener(){},querySelector(){return {};}});return elements.get(id);};
   let user=null; let fail=false;
@@ -26,12 +26,21 @@ function device(server,initial=[]) {
   };
   const sandbox={SimpleDoData:{KEY,same},SIMPLEDO_CONFIG:{supabaseUrl:'https://test.supabase.co',supabasePublicKey:'sb_publishable_test'},
     supabase:{createClient(){return client;}},document:{getElementById:$,addEventListener(){},hidden:false},navigator:{onLine:true},
-    window:{addEventListener(){}},setTimeout(){return 0;},clearTimeout(){},setInterval(){},URL,location:{href:'https://example.com/SimpleDo/'},history:{replaceState(){}},atob};
+    window:{addEventListener(){}},setTimeout(){return 0;},clearTimeout(){},setInterval(){},URL,location:{href},history:{replaceState(){}},atob};
   vm.runInNewContext(fs.readFileSync(require('node:path').join(__dirname,'../cloud.js'),'utf8'),sandbox);
   const messages=[],tags=new T.Catalog(store); const controller=new sandbox.SimpleDoCloud.Controller(store,{tags,changed(){},notify(m){messages.push(m);}});
   return {store,tags,controller,sandbox,$,messages,signIn(id){user=id;controller.session({user:{id,email:id+'@example.com'}});},fail(v){fail=v;}};
 }
 const settle=()=>new Promise(r=>setImmediate(r));
+test('public HTTP cannot initialize authentication or change local tasks; loopback remains usable',()=>{
+ const a=device(new Map(),[task('keep')],'http://simpledo.co.uk/');
+ assert.equal(a.controller.client,undefined);
+ assert.match(a.$('accountError').textContent,/https:\/\/simpledo.co.uk/);
+ assert.equal(a.store.live()[0].id,'keep');
+ for(const url of ['http://localhost:8000/','http://127.0.0.1:8000/','http://[::1]:8000/','https://simpledo.co.uk/']){
+  assert.ok(device(new Map(),[],url).controller.client,url);
+ }
+});
 test('two devices sync creation, offline edits, completion, preference and deletion',async()=>{
  const server=new Map(),a=device(server,[task('a')]),b=device(server); await settle();
  a.signIn('owner'); b.signIn('owner');

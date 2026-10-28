@@ -2,7 +2,9 @@
 
 **Plan it. Forget it. Do it.** A quiet, minimal task planner, with local backups, optional Supabase account sync and calendar-aware capacity planning.
 
-[Open SimpleDo](https://dtosh44.github.io/SimpleDo/)
+[Open SimpleDo](https://simpledo.co.uk/)
+
+Production setup, verification limits, release approvals and the first-device restore checklist: [production runbook](docs/production-setup.md).
 
 Plain HTML, CSS and JavaScript, with a locally bundled official Supabase client. No production build step, trackers or required account. Black and white with restrained, purposeful colour accents.
 
@@ -118,19 +120,19 @@ Before restoring or joining a different account, SimpleDo saves a local recovery
 
 The `simpledo.tasks.v1` key is never deleted or overwritten by this upgrade. Its exact original bytes are copied to `simpledo.preUpgrade.v1` before migration to `simpledo.data.v2`. The new envelope stores task data, account binding, server revisions and durable pending edits/deletion tombstones in one atomic local-storage write. Unknown task fields are retained. If stored data cannot be read, the app preserves it, displays an error and prevents task edits instead of seeding replacement samples. Download recovery data before troubleshooting. Close old SimpleDo tabs and reload before editing after an upgrade; the old version only knows the old storage key.
 
-Export a fresh backup immediately after upgrading on each device. Browser storage belongs to the exact site origin and browser profile: use the existing GitHub Pages URL to retain access to your current tasks.
+Export a fresh backup immediately after upgrading on each device. Browser storage belongs to the exact scheme, hostname and browser profile. Moving to `https://simpledo.co.uk/` requires exporting from the old origin and importing the backup on the new one; redirects cannot move browser storage. Do not clear the old browser data.
 
 ## Enable optional Supabase sync
 
-Cloud configuration is intentionally empty in `config.js`. Until configured, SimpleDo remains a fully local app and Settings explains that cloud is unavailable. Do not describe a deployed instance as cloud-tested until the live checks below pass.
+The release configuration in `config.js` contains only the dedicated SimpleDo project URL and public publishable key. Hosted migrations and security checks passed; email delivery and real multi-device login remain acceptance checks. See the [production runbook](docs/production-setup.md). Fresh cloud-configured browsers start empty; existing storage is preserved. The setup below documents how to reproduce the configuration.
 
 1. Create a Supabase project in your own account.
 2. In **SQL Editor**, run the complete contents of [`supabase/001_tasks.sql`](supabase/001_tasks.sql). It creates the task table, enables Row Level Security, grants authenticated users access to their own rows, and exposes a revision-checked write function. Anonymous reads/writes and direct client writes are denied. Also run [`supabase/003_tags.sql`](supabase/003_tags.sql) for custom-tag metadata sync. Keep deletion tombstones; do not purge rows, reset revisions or replace this migration with unrestricted insert/update policies.
 3. In **Authentication → Providers**, enable **Email** and allow new users to sign up. Keep the standard magic-link confirmation URL in the email template. The app requests a passwordless link using Supabase's official SDK and uses PKCE with persisted sessions and automatic token refresh. Open each link in the same browser/profile/device that requested it, so the stored PKCE verifier is available. Request a separate link on each device. [Supabase email sign-in documentation](https://supabase.com/docs/guides/auth/auth-email-passwordless) and [PKCE documentation](https://supabase.com/docs/guides/auth/sessions/pkce-flow).
-4. In **Authentication → URL Configuration**, set **Site URL** to `https://dtosh44.github.io/SimpleDo/` and add that exact URL to **Redirect URLs**. For local testing, also allow your exact localhost URL, for example `http://localhost:8000/`. If you use a custom domain, allow its actual app URL too.
+4. In **Authentication → URL Configuration**, set **Site URL** to `https://simpledo.co.uk/` and add only that exact URL to **Redirect URLs** for production. Use a separate project for local authentication tests; do not add wildcard, HTTP, old GitHub Pages or localhost redirects to production.
 5. Configure a production SMTP provider in **Authentication → SMTP Settings** for dependable email delivery. Review your project's email rate limits and test signup with your own email address.
 6. Find the **Project URL** and **publishable key** in the project's API settings/connect dialog. In `config.js`, set `supabaseUrl` to that URL and `supabasePublicKey` to the publishable key (`sb_publishable_…`). The legacy public `anon` key is also supported. These two values are intentionally public. **Never use a secret key (`sb_secret_…`), service-role key, database password or other private credential in browser code.** [Supabase RLS documentation](https://supabase.com/docs/guides/database/postgres/row-level-security).
-7. Commit the public configuration and publish the files to GitHub Pages. Reload the app online on both devices.
+7. Review and approve the release before merging or publishing to GitHub Pages. Reload the app online on both devices after the approved deployment.
 8. Open **Settings → Account**, enter your email and choose **Send sign-in link**. Open the email link in the same browser. Signing in does not upload, remove or replace local tasks.
 9. On first sign-in to an account on this browser, choose **Merge and enable sync**. A local recovery checkpoint is saved first. **Keep local** leaves sync paused; reopen Settings to enable it later.
 10. Repeat on your other devices with the same email. When connected and the page is visible, changes reconcile automatically about every five seconds, and after local edits, reconnects and returning to the app.
@@ -143,7 +145,7 @@ Changes save locally before upload. The queue survives refreshes and offline reo
 
 When edits conflict, the cloud version stays at its original ID and a different local edit is retained as a new task labelled **Recovered edit**. A stale deletion cannot erase a newer cloud edit. If an edit conflicts with a cloud deletion, the original ID stays deleted and the local edit becomes a recovered task. Review recovered copies and remove whichever version you do not need. Updates received while a task editor is open also preserve the form's version as a recovered task when necessary. Full task records are reconciled, rather than attempting to merge individual text fields.
 
-Only task data and focus **preferences** sync. Active countdowns, pause/resume state and break sessions stay in `simpledo.focusSession.v1` on this browser. Cloud errors leave local tasks usable and show a status/error in Settings. If local saving fails, export a backup before closing; sync pauses to protect unsaved work.
+Task data, custom tag metadata and focus **preferences** sync. Working-hours settings travel in backups but do not sync. Active countdowns, pause/resume state and break sessions stay in `simpledo.focusSession.v1` on this browser. Cloud errors leave local tasks usable and show a status/error in Settings. If local saving fails, export a backup before closing; sync pauses to protect unsaved work.
 
 ## GitHub Pages and local development
 
