@@ -549,8 +549,8 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
       'reopened task returns to the Inbox');
     assert.equal(await retentionPage.locator('#sidebarInboxCount').innerText(),'2');
     await retentionPage.locator('[data-nav=snapshot]').click();
-    assert.equal(await retentionPage.locator('#snapshot-completed').innerText(),'1',
-      'Snapshot still counts completed Inbox history separately from reopened tasks');
+    assert.equal(await retentionPage.locator('#snapshot-completed').innerText(),'3',
+      'Snapshot still counts every remaining completed task after reopening the legacy record');
     await retentionContext.close();assert.deepEqual(retentionErrors,[]);
     console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export, Snapshot ranges/read-only updates and offline reload.');
   } finally {await browser.close(); server.close();}
