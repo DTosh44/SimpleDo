@@ -440,14 +440,37 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
       const data=[
         task('fresh','Fresh completed Inbox',true,now.toISOString()),
         task('older','Older completed Inbox',true,new Date(now.getTime()-80*3600000).toISOString()),
-        task('legacy','Previously completed Inbox',true,null),
+        {...task('legacy','Previously completed Inbox',true,null),notes:'Legacy account history note'},
         task('pending','Still open Inbox',false,null),
         task('today-scheduled','Scheduled completed today',true,now.toISOString(),today)
       ];
       localStorage.setItem('simpledo.tasks.v1',JSON.stringify(data));
     });
     await retentionPage.goto(base);
-    assert.match(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/,'unchanged default keeps history');
+    assert.match(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/,'indefinite still retains dated completions');
+    assert.doesNotMatch(await retentionPage.locator('#inboxTasks').innerText(),/Previously completed Inbox/,
+      'undated legacy completions are archived even under Indefinitely');
+    assert.match(await retentionPage.locator('#inboxArchivedCount').innerText(),/1 archived/);
+    const beforeHistory=await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
+    await retentionPage.locator('#openCompletedHistory').click();
+    assert.equal(await retentionPage.locator('#completedHistoryDialog').isVisible(),true);
+    assert.equal(await retentionPage.locator('#completedHistoryScope').inputValue(),'archived');
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Previously completed Inbox/);
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Date not recorded/);
+    assert.doesNotMatch(await retentionPage.locator('#completedHistoryList').innerText(),/Older completed Inbox/,
+      'a recorded completion stays in Inbox under Indefinitely');
+    await retentionPage.locator('#completedHistoryScope').selectOption('all');
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Scheduled completed today/,
+      'all history also exposes scheduled completed tasks');
+    await retentionPage.locator('#completedHistorySearch').fill('ACCOUNT HISTORY NOTE');
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Previously completed Inbox/,
+      'history search includes task notes case-insensitively');
+    assert.doesNotMatch(await retentionPage.locator('#completedHistoryList').innerText(),/Scheduled completed today/);
+    await retentionPage.locator('#completedHistoryScope').selectOption('legacy');
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Previously completed Inbox/);
+    await retentionPage.locator('#closeCompletedHistory').click();
+    assert.equal(await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),beforeHistory,
+      'searching or opening history never mutates tasks');
     await retentionPage.locator('#settingsButton').click();
     assert.equal(await retentionPage.locator('#inboxCompletedVisibility').inputValue(),'indefinitely');
     const beforePreference=await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
@@ -457,7 +480,7 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     let inboxText=await retentionPage.locator('#inboxTasks').innerText();
     assert.match(inboxText,/Fresh completed Inbox/);
     assert.match(inboxText,/Still open Inbox/);
-    assert.match(inboxText,/Previously completed Inbox/,'undated legacy completions stay available');
+    assert.doesNotMatch(inboxText,/Previously completed Inbox/,'undated legacy completions are archived in the history browser');
     assert.doesNotMatch(inboxText,/Older completed Inbox/,'48 hours hides older completions');
     assert.equal(await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),beforePreference,'preference change never mutates tasks');
     assert.equal(await retentionPage.locator('#sidebarInboxCount').innerText(),'1','Inbox count excludes completed tasks');
@@ -508,6 +531,26 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     const exported=JSON.parse(fs.readFileSync(await retentionBackup.path(),'utf8'));
     assert.ok(exported.tasks.some(t=>t.id==='fresh'&&t.completedAt),'hidden tasks preserve timestamps in backups');
     assert.ok(exported.tasks.some(t=>t.id==='older'),'visibility never deletes old completed tasks');
+    assert.ok(exported.tasks.some(t=>t.id==='legacy'&&t.completed&&!t.completedAt),
+      'backups retain pre-tracking completions with their original IDs');
+    await retentionPage.locator('#closeSettings').click();
+    await retentionPage.locator('#openCompletedHistory').click();
+    await retentionPage.locator('#completedHistoryScope').selectOption('legacy');
+    assert.match(await retentionPage.locator('#completedHistoryList').innerText(),/Previously completed Inbox/);
+    await retentionPage.getByRole('button',{name:'Reopen Previously completed Inbox'}).click();
+    const restoredLegacy=await retentionPage.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records)
+      .find(row=>row.task.id==='legacy').task);
+    assert.equal(restoredLegacy.completed,false,'reopened legacy task is an ordinary unfinished task');
+    assert.equal(restoredLegacy.completedAt,undefined,'no completion date is invented on reopening');
+    assert.equal(await retentionPage.locator('#completedHistoryList .completed-history-item').count(),0,
+      'reopened task immediately leaves the legacy completion archive');
+    await retentionPage.locator('#closeCompletedHistory').click();
+    assert.match(await retentionPage.locator('#inboxTasks').innerText(),/Previously completed Inbox/,
+      'reopened task returns to the Inbox');
+    assert.equal(await retentionPage.locator('#sidebarInboxCount').innerText(),'2');
+    await retentionPage.locator('[data-nav=snapshot]').click();
+    assert.equal(await retentionPage.locator('#snapshot-completed').innerText(),'1',
+      'Snapshot still counts completed Inbox history separately from reopened tasks');
     await retentionContext.close();assert.deepEqual(retentionErrors,[]);
     console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export, Snapshot ranges/read-only updates and offline reload.');
   } finally {await browser.close(); server.close();}
