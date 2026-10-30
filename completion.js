@@ -24,11 +24,12 @@
   };
   function visibleInInbox(task,choice,now=Date.now()){
     if(!task.completed)return true;
-    const policy=normalize(choice);
-    if(policy==='indefinitely')return true;
+    // Pre-timestamp completions are archived from the active Inbox automatically.
+    // Preserve the actual task; never invent a finish date or delete its history.
     const completed=dateOf(task.completedAt);
-    // Old completed tasks have no trustworthy completion time. Do not invent one.
-    if(completed===null || completed>now)return true;
+    if(completed===null)return false;
+    const policy=normalize(choice);
+    if(policy==='indefinitely'||completed>now)return true;
     if(policy==='end-of-day')return sameLocalDay(completed,now);
     return now-completed<DURATIONS[policy]*3600000;
   }
