@@ -14,12 +14,12 @@
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="icon" type="image/x-icon" href="./favicon.ico?v=3" sizes="32x32">
   <link rel="icon" type="image/svg+xml" href="./simpledo-icon-v3.svg" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=32">
+  <link rel="stylesheet" href="./styles.css?v=33">
   <script src="./tags.js?v=15" defer></script>
   <script src="./tag-ui.js?v=19" defer></script>
   <script src="./capacity.js?v=13" defer></script>
   <script src="./data.js?v=15" defer></script>
-  <script src="./completion.js?v=3" defer></script>
+  <script src="./completion.js?v=4" defer></script>
   <script src="./config.js?v=10" defer></script>
   <script src="./vendor/supabase.js" defer></script>
   <script src="./cloud.js?v=16" defer></script>
@@ -29,7 +29,7 @@
   <script src="./capture.js?v=17" defer></script>
   <script src="./capture-ui.js?v=15" defer></script>
   <script src="./daily.js?v=17" defer></script>
-  <script src="./app.js?v=27" defer></script>
+  <script src="./app.js?v=28" defer></script>
 </head>
 <body>
   <div class="app-shell">
@@ -124,6 +124,9 @@
                 <span id="inboxFilterSummary" role="status" aria-live="polite"></span>
                 <button type="button" id="clearInboxFilters" class="inbox-filter-clear" hidden>Clear filters</button>
               </div>
+            </div>
+            <div class="inbox-history-row">
+              <button type="button" id="openCompletedHistory" class="inbox-history-open">Completed history <span id="inboxArchivedCount">0 archived</span></button>
             </div>
             <div id="inboxTasks" class="task-stack" tabindex="0" role="region" aria-label="Inbox tasks — scroll independently"></div>
           </section>
@@ -293,10 +296,26 @@
           <option value="5-days">5 days</option>
           <option value="indefinitely">Indefinitely</option>
         </select>
-        <p class="focus-hint">Completed tasks are hidden from the Inbox after the chosen period, never deleted. They're still counted in Snapshot; scheduled tasks stay on their days. Earlier completions without a recorded finish time remain visible. This display preference syncs with your SimpleDo account across devices as soon as you are signed in. Task uploads still require your merge consent. Offline changes are saved locally until the next sync.</p>
+        <p class="focus-hint">Completed tasks are hidden from the Inbox after the chosen period, never deleted. They're still counted in Snapshot; scheduled tasks stay on their days. Older completed tasks without a recorded finish time are automatically hidden from the Inbox but remain available under Completed history. This display preference syncs with your SimpleDo account across devices as soon as you are signed in. Task uploads still require your merge consent. Offline changes are saved locally until the next sync.</p>
         <p id="inboxVisibilityStatus" role="status"></p>
       </section>
       <section class="settings-section"><h3>Backups</h3><p>Keep a copy somewhere safe. Backups contain your task details; they do not include login credentials or running timers.</p><div class="backup-actions"><button class="button button-outline" id="exportBackup">Export backup</button><button class="button button-outline" id="importBackup">Import backup</button></div><input type="file" id="backupFile" accept=".json,application/json" hidden><button class="recovery-button" id="recoveryDownload">Download recovery data</button><p class="focus-hint">Recovery includes the saved copy from before your last restore or account merge and the original upgrade data, when available.</p></section>
+    </div>
+  </dialog>
+  <dialog class="task-dialog completed-history-dialog" id="completedHistoryDialog" aria-labelledby="completedHistoryHeading" aria-describedby="completedHistoryDescription">
+    <div class="completed-history-inner">
+      <div class="dialog-header"><h2 id="completedHistoryHeading">Completed history</h2><button type="button" class="icon-button" id="closeCompletedHistory" aria-label="Close completed history">×</button></div>
+      <p id="completedHistoryDescription">Finished tasks remain in SimpleDo even when they no longer appear in Inbox. You can search, review and reopen them here.</p>
+      <div class="completed-history-filters">
+        <div><label class="field-label" for="completedHistorySearch">Search completed tasks</label><input class="field-input" id="completedHistorySearch" type="search" placeholder="Search names and notes…" autocomplete="off"></div>
+        <div><label class="field-label" for="completedHistoryScope">Show</label><select class="field-input" id="completedHistoryScope">
+          <option value="archived">Hidden from Inbox</option>
+          <option value="legacy">Older tasks (date unknown)</option>
+          <option value="all">All completed tasks</option>
+        </select></div>
+      </div>
+      <p id="completedHistoryCount" class="completed-history-count" role="status" aria-live="polite"></p>
+      <div id="completedHistoryList" class="completed-history-list" role="region" aria-label="Completed task records" tabindex="0"></div>
     </div>
   </dialog>
   <dialog class="task-dialog settings-dialog" id="restoreDialog" aria-labelledby="restoreHeading"><div class="settings-inner"><h2 id="restoreHeading">Restore backup</h2><p id="restoreCount"></p><p>Merge adds missing IDs and keeps existing tasks, tags, deletions and working hours. Importing the same file again won’t duplicate tasks.</p><button class="button button-dark" id="mergeBackup">Merge with existing tasks</button><hr><p>Replace removes your current tasks and restores this backup, including working hours and custom tags when present. If sync is enabled, those removals also sync to your account. A recovery copy is saved in this browser first.</p><label class="main-checkbox"><input type="checkbox" id="replaceConfirm"><span>I understand that Replace removes existing tasks.</span></label><div class="backup-actions"><button class="button button-danger" id="replaceBackup" disabled>Replace existing tasks</button><button class="button button-outline" id="cancelRestore">Cancel</button></div><p id="restoreError" role="alert"></p></div></dialog>
