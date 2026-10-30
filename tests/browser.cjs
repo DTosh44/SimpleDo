@@ -425,6 +425,90 @@ const legacy = {id:'existing-task',title:'My existing task',notes:'Keep every de
     assert.equal(await capacityPage.locator('#snapshot-inbox').innerText(),'2');await capacityContext.setOffline(false);
     await capacityPage.locator('[data-nav="planner"]').click();assert.equal(await capacityPage.locator('#workspace').isVisible(),true);assert.equal(await capacityPage.locator('#snapshotView').isVisible(),false);
     await capacityContext.close();assert.deepEqual(errors,[]);
+    // Independent completed-Inbox retention and Today wins acceptance checks.
+    const retentionContext=await browser.newContext({viewport:{width:1200,height:900},acceptDownloads:true});
+    const retentionPage=await retentionContext.newPage();
+    const retentionErrors=[];retentionPage.on('pageerror',error=>retentionErrors.push(error.message));
+    await retentionPage.addInitScript(()=>{
+      if(localStorage.getItem('simpledo.data.v2'))return;
+      const now=new Date(),pad=n=>String(n).padStart(2,'0');
+      const today=[now.getFullYear(),pad(now.getMonth()+1),pad(now.getDate())].join('-');
+      const task=(id,title,completed,completedAt,date=null)=>({
+        id,title,notes:'',date,completed,main:false,rolled:false,
+        ...(completedAt?{completedAt}:{})
+      });
+      const data=[
+        task('fresh','Fresh completed Inbox',true,now.toISOString()),
+        task('older','Older completed Inbox',true,new Date(now.getTime()-80*3600000).toISOString()),
+        task('legacy','Previously completed Inbox',true,null),
+        task('pending','Still open Inbox',false,null),
+        task('today-scheduled','Scheduled completed today',true,now.toISOString(),today)
+      ];
+      localStorage.setItem('simpledo.tasks.v1',JSON.stringify(data));
+    });
+    await retentionPage.goto(base);
+    assert.match(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/,'unchanged default keeps history');
+    await retentionPage.locator('#settingsButton').click();
+    assert.equal(await retentionPage.locator('#inboxCompletedVisibility').inputValue(),'indefinitely');
+    const beforePreference=await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2'));
+    await retentionPage.locator('#inboxCompletedVisibility').selectOption('48-hours');
+    assert.match(await retentionPage.locator('#inboxVisibilityStatus').innerText(),/Saved locally.*Sign in/);
+    await retentionPage.locator('#closeSettings').click();
+    let inboxText=await retentionPage.locator('#inboxTasks').innerText();
+    assert.match(inboxText,/Fresh completed Inbox/);
+    assert.match(inboxText,/Still open Inbox/);
+    assert.match(inboxText,/Previously completed Inbox/,'undated legacy completions stay available');
+    assert.doesNotMatch(inboxText,/Older completed Inbox/,'48 hours hides older completions');
+    assert.equal(await retentionPage.evaluate(()=>localStorage.getItem('simpledo.data.v2')),beforePreference,'preference change never mutates tasks');
+    assert.equal(await retentionPage.locator('#sidebarInboxCount').innerText(),'1','Inbox count excludes completed tasks');
+    await retentionPage.locator('[data-nav=today]').click();
+    assert.equal(await retentionPage.locator('#todayWins').isVisible(),true);
+    assert.equal(await retentionPage.locator('#todayWinsCount').innerText(),'2','Today counts completion from Inbox and from scheduled tasks');
+    assert.match(await retentionPage.locator('#todayWinsRecent').innerText(),/Fresh completed Inbox/);
+    assert.match(await retentionPage.locator('#todayWinsRecent').innerText(),/Scheduled completed today/);
+    await retentionPage.locator('[data-nav=planner]').click();
+    await retentionPage.getByRole('button',{name:'Mark Still open Inbox complete'}).click();
+    const newRecord=await retentionPage.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records)
+      .find(row=>row.task.id==='pending').task);
+    assert.equal(newRecord.completed,true);
+    assert.ok(Number.isFinite(Date.parse(newRecord.completedAt)),'completion writes a valid timestamp');
+    await retentionPage.locator('[data-nav=today]').click();
+    assert.equal(await retentionPage.locator('#todayWinsCount').innerText(),'3','Today updates after ticking off an Inbox task');
+    await retentionPage.locator('[data-nav=planner]').click();
+    await retentionPage.getByRole('button',{name:'Mark Still open Inbox incomplete'}).click();
+    const reopened=await retentionPage.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('simpledo.data.v2')).records)
+      .find(row=>row.task.id==='pending').task);
+    assert.equal(reopened.completed,false);
+    assert.equal(reopened.completedAt,undefined,'unchecking clears the previous finish time');
+    await retentionPage.locator('#settingsButton').click();
+    await retentionPage.locator('#inboxCompletedVisibility').selectOption('3-days');
+    await retentionPage.locator('#closeSettings').click();
+    assert.doesNotMatch(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/);
+    await retentionPage.locator('#settingsButton').click();
+    await retentionPage.locator('#inboxCompletedVisibility').selectOption('5-days');
+    await retentionPage.locator('#closeSettings').click();
+    assert.match(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/,'5 days retains 80-hour history');
+    await retentionPage.locator('#settingsButton').click();
+    await retentionPage.locator('#inboxCompletedVisibility').selectOption('end-of-day');
+    await retentionPage.locator('#closeSettings').click();
+    assert.doesNotMatch(await retentionPage.locator('#inboxTasks').innerText(),/Older completed Inbox/);
+    await retentionPage.setViewportSize({width:390,height:844});
+    await retentionPage.locator('[data-nav=today]').click();
+    assert.equal(await retentionPage.locator('#todayWins').isVisible(),true,'Today wins remain visible on phone');
+    const winsBounds=await retentionPage.locator('#todayWins').boundingBox();
+    assert.ok(winsBounds&&winsBounds.x>=0&&winsBounds.x+winsBounds.width<=390,'Today wins fit the mobile screen');
+    await retentionPage.reload();
+    await retentionPage.locator('#settingsButton').click();
+    assert.equal(await retentionPage.locator('#inboxCompletedVisibility').inputValue(),'end-of-day','preference survives reload');
+    await retentionPage.locator('#closeSettings').click();
+    const [retentionBackup]=await Promise.all([
+      retentionPage.waitForEvent('download'),
+      retentionPage.locator('#settingsButton').click().then(()=>retentionPage.locator('#exportBackup').click())
+    ]);
+    const exported=JSON.parse(fs.readFileSync(await retentionBackup.path(),'utf8'));
+    assert.ok(exported.tasks.some(t=>t.id==='fresh'&&t.completedAt),'hidden tasks preserve timestamps in backups');
+    assert.ok(exported.tasks.some(t=>t.id==='older'),'visibility never deletes old completed tasks');
+    await retentionContext.close();assert.deepEqual(retentionErrors,[]);
     console.log('PASS: migration, JSON download, merge, repeat import, replace confirmation, recovery copy, Inbox import, focus, offline reload/edit, desktop/mobile layout, working hours, task estimates, optional suggestions, drag onto a day off, tag creation/filtering/rename/delete, tag export, Snapshot ranges/read-only updates and offline reload.');
   } finally {await browser.close(); server.close();}
 })().catch(error=>{console.error(error);server.close();process.exitCode=1;});

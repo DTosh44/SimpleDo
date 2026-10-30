@@ -47,7 +47,9 @@
         window.addEventListener('online', () => this.schedule());
         window.addEventListener('offline', () => this.status(this.allowed ? 'Offline' : 'Saved locally'));
         document.addEventListener('visibilitychange', () => { if (!document.hidden) this.schedule(); });
-        window.addEventListener('storage', e => { if (e.key === SimpleDoData.KEY) this.schedule(); });
+        window.addEventListener('storage', e => {
+          if (e.key === SimpleDoData.KEY || e.key?.startsWith('simpledo.inboxCompletedVisibility.account.v1.')) this.schedule();
+        });
         this.interval = setInterval(() => { if (!document.hidden) this.schedule(); }, 5000);
       } catch (error) { this.error(error); }
     }
@@ -56,17 +58,30 @@
       this.$('accountError').textContent = error.message || 'Cloud unavailable. Tasks remain on this device.';
       this.status(navigator.onLine ? 'Sync needs attention' : 'Offline');
     }
+    bindPreferences(owner) {
+      this.preferenceBindingError = null;
+      try { return owner ? this.hooks.preferences?.bind(owner) : this.hooks.preferences?.unbind(); }
+      catch (error) {
+        this.preferenceBindingError = error;
+        // Preserve unreadable bytes and never expose the previous account's choice.
+        this.hooks.preferences?.unbind();
+        return true;
+      }
+    }
     session(session) {
       const user = session?.user || null;
       if (this.user?.id !== user?.id) this.generation++;
       this.user = user;
       this.hooks.accountChanged?.(this.client, user);
       this.allowed = Boolean(user && this.store.state.owner === user.id);
+      // Account preferences stay isolated by owner; never copy a former user's setting.
+      const preferenceChanged=this.bindPreferences(user?.id);
+      if(preferenceChanged)this.hooks.preferencesChanged?.();
       this.$('signInForm').hidden = Boolean(user);
       this.$('signOut').hidden = !user;
       this.$('mergeAccount').hidden = !user || this.allowed;
       this.$('accountMessage').textContent = user ? 'Signed in as ' + user.email : 'Use SimpleDo locally, or sign in with an email link.';
-      if (this.allowed) this.schedule(); else this.status('Saved locally');
+      if (user) this.schedule(); else this.status('Saved locally');
       // Remove auth callback parameters after the SDK has exchanged the code.
       if (session && new URL(location.href).searchParams.has('code')) {
         const url = new URL(location.href); url.searchParams.delete('code'); history.replaceState({}, '', url);
@@ -95,23 +110,41 @@
     enable() {
       if (!this.user || this.hooks.canSync?.() === false) return;
       try {
-        this.hooks.changed(this.store.bind(this.user.id)); this.allowed = true;
+        this.hooks.changed(this.store.bind(this.user.id));
+        if(this.bindPreferences(this.user.id))this.hooks.preferencesChanged?.();
+        this.allowed = true;
         this.$('mergeAccount').hidden = true; this.schedule();
       } catch (error) { this.error(error); }
     }
     schedule() {
       clearTimeout(this.timer);
-      if (!this.allowed || this.hooks.canSync?.() === false) return;
-      this.status(navigator.onLine ? 'Syncing' : 'Offline');
+      if (!this.user || (!this.allowed && !this.hooks.preferences) || this.hooks.canSync?.() === false) return;
+      this.status(navigator.onLine ? (this.allowed ? 'Syncing' : 'Syncing preferences') : 'Offline');
       this.timer = setTimeout(() => this.sync(), 250);
     }
     async sync() {
-      if (this.busy || !this.allowed || !this.user || !navigator.onLine || this.hooks.canSync?.() === false) return;
+      if (this.busy || !this.user || !navigator.onLine || this.hooks.canSync?.() === false) return;
       this.busy = true;
       const generation = this.generation, owner = this.user.id;
-      const valid = () => this.hooks.canSync?.() !== false && generation === this.generation && this.allowed && this.user?.id === owner && this.store.read()?.owner === owner;
+      const accountValid = () => this.hooks.canSync?.() !== false && generation === this.generation && this.user?.id === owner;
+      const valid = () => accountValid() && this.allowed && this.store.read()?.owner === owner;
       try {
         this.status('Syncing');
+        // Account preferences do not require consent to merge this device's tasks.
+        // Pull them even on a new/unbound device or if task networking later fails.
+        let preferenceError = this.preferenceBindingError;
+        if (!preferenceError && this.hooks.preferences && accountValid()) try {
+          await this.hooks.preferences.sync(this.client,owner,accountValid,
+            () => this.hooks.preferencesChanged?.(),
+            message => this.hooks.notify?.(message));
+        } catch (error) { preferenceError = error; }
+        if (!accountValid()) return;
+        if (!valid()) {
+          this.$('accountError').textContent=preferenceError ? 'Completed-task preference sync needs attention. Check the preferences migration and connection.' : '';
+          this.status(preferenceError ? 'Preference needs attention' : 'Saved locally');
+          if (this.hooks.preferences?.pending && !preferenceError) this.schedule();
+          return;
+        }
         let tagError = null;
         if (this.hooks.tags) try {
           await this.hooks.tags.sync(this.client, owner, valid, () => this.hooks.tagsChanged?.());
@@ -142,10 +175,15 @@
           after = data[data.length - 1].id;
         }
         if (valid()) {
-          this.$('accountError').textContent = tagError ? 'Task sync is available; tag sync needs attention. Run the tags migration and check your connection.' : '';
-          const pending = this.store.pending().length;
-          this.status(pending ? 'Syncing' : tagError ? 'Tags need attention' : 'Saved');
-          if (pending) this.schedule();
+          const details=[];
+          if(tagError)details.push('Tag sync needs attention.');
+          if(preferenceError)details.push('Completed-task preference sync needs attention. Check the preferences migration and connection.');
+          this.$('accountError').textContent=details.join(' ');
+          const pending=this.store.pending().length;
+          const prefPending=Boolean(this.hooks.preferences?.pending);
+          this.status(pending || (prefPending && !preferenceError)
+            ? 'Syncing' : preferenceError ? 'Preference needs attention' : tagError ? 'Tags need attention' : 'Saved');
+          if (pending || (prefPending && !preferenceError)) this.schedule();
         }
       } catch (error) { if (valid()) this.error(error); }
       finally { this.busy = false; }

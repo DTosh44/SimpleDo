@@ -28,7 +28,7 @@
         (t.capacityContext != null && !['work','outside'].includes(t.capacityContext)) ||
         (t.estimateMinutes != null && (!Number.isInteger(t.estimateMinutes) || t.estimateMinutes < 1 || t.estimateMinutes > 10080)) ||
         (t.focusMinutes != null && (!Number.isInteger(t.focusMinutes) || t.focusMinutes < 1 || t.focusMinutes > 180)) ||
-        ['createdAt','updatedAt'].some(k => t[k] != null && (typeof t[k] !== 'string' || !Number.isFinite(Date.parse(t[k]))))) {
+        ['createdAt','updatedAt','completedAt'].some(k => t[k] != null && (typeof t[k] !== 'string' || !Number.isFinite(Date.parse(t[k]))))) {
       throw new Error('Invalid task data. Your current tasks have not been replaced.');
     }
     return { notes: '', date: null, completed: false, main: false, rolled: false, demo: false, ...copy(t) };

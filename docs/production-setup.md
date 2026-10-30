@@ -15,10 +15,11 @@ Audit and provider checks: 28 October 2026. Release base: `932a58f` on `DTosh44/
 | `supabase/002_calendars.sql` | `20261028113424` |
 | `supabase/003_tags.sql` | `20261028113425` |
 | `supabase/004_capture.sql` | `20261028113427` |
+| `supabase/005_preferences.sql` | `20261028130226` |
 
 Do not blindly replay these as CLI migrations: the source files use their existing names and the hosted API assigned the history versions above. Inspect history and schema before any future migration. No rows or revision histories were reset. Calendar/OCR schema is present but its Edge Functions and external services have not been deployed or activated.
 
-All five application tables have RLS. Browser roles cannot write tables directly. Authenticated users can read only their own task/tag rows and write through owner-scoped, revision-checked RPCs. The functions use an empty search path, authenticate with `auth.uid()`, and serialize changes per owner. Anonymous users cannot call these RPCs. Keep permanent task/tag tombstones and monotonically increasing revisions.
+All six application tables have RLS (including the subsequently applied preferences table). Browser roles cannot write tables directly. Authenticated users can read only their own task/tag rows and write through owner-scoped, revision-checked RPCs. The functions use an empty search path, authenticate with `auth.uid()`, and serialize changes per owner. Anonymous users cannot call these RPCs. Keep permanent task/tag tombstones and monotonically increasing revisions.
 
 ## Authentication and email
 
@@ -94,3 +95,14 @@ The Supabase free project can pause after inactivity; this is a reliability limi
 3. In **Settings → Account**, request a sign-in link using the same email you will use everywhere. Open it in that browser. Choose **Merge and enable sync** once and wait for **Saved**, with no account error or tag warning.
 4. On the second device, open the HTTPS address, sign in using a **new link requested on that device**, then choose **Merge and enable sync** and wait for the cloud tasks. Start from an empty browser; do not import the backup again on each device.
 5. Check one small edit in each direction and a reload. Export another backup. If the second device already has unique local work, export it first and merge deliberately; different IDs can represent duplicate titles. Review **Recovered edit** copies rather than repeatedly restoring or replacing data.
+
+## Follow-up release gate — account-synchronised Inbox completion visibility (PR #25)
+
+This section documents the proposed **subsequent release**, not the state of the live system at the time of the original setup record above.
+
+- New file: `supabase/005_preferences.sql`, **applied unchanged and verified** on project `ffmcowwuyqmclssnvree`, migration version **`20261028130226`**. Full source hash, provider evidence and release status are in the [preference verification record](preference-sync-verification.md). Existing hosted versions 001–004 should remain untouched.
+- The migration creates `public.simpledo_preferences` with a single `inbox_completed_visibility` preference per user, owner-only SELECT RLS, no direct browser writes, and an authenticated revision-checked `sync_simpledo_preference` RPC. It derives identity using `auth.uid()`; anonymous reads/writes and unauthorised values are rejected.
+- **Migration release gate satisfied:** the live schema/history, RLS/RPC, data preservation and genuine independent-browser sync have been verified. Migrations 001–004 were not replayed. Review the final PR checks and obtain explicit merge/deployment approval before releasing the frontend. Never place database secrets in code, issues or chat.
+- The account preference syncs immediately after sign-in, independently of task-merge consent. The browser keeps a separate local pending preference per account for offline edits and refreshes it across tabs without regressing acknowledged revisions. At first sync it reads the cloud choice before writing; an existing user choice wins over a device's legacy/anonymous default. Only a one-time existing anonymous choice can seed a user with **no** cloud preference. Switching accounts does not import the last account's preference.
+- Last accepted server revision is checked on writes. If an older offline change conflicts with a newer server value, the server wins and a visible conflict notice explains how to reselect; changes aren't silently overwritten. Normal task/tag sync continues even if preference sync fails.
+- Manual acceptance after approved deployment: choose **48 hours** on the Mac and confirm phone updates without changing it there, switch to **3 days** on the phone and confirm Mac updates, repeat with an offline change and reconnection, reload both browsers, sign out and into a different account and verify user isolation. Inspect the saved task records, confirm that Inbox visibility never deletes tasks, and take a fresh JSON backup. A mocked two-device suite and local PGlite SQL tests do **not** prove hosted provider acceptance.

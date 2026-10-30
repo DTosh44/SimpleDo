@@ -76,6 +76,10 @@
   let renderedToday = null;
   let lastObservedDay = todayKey();
   let query = "";
+  const completionPreferences = new SimpleDoCompletion.PreferenceStore(localStorage);
+  let inboxCompletedVisibility = completionPreferences.value;
+  let lastInboxVisibleCount = null;
+  let lastInboxVisibilityMinute = -1;
   // Inbox-only discovery filters stay separate from the all-task header search and tag filter.
   let inboxQuery = "";
   let inboxTag = "";
@@ -323,7 +327,10 @@
 
   function toggleTask(task, daily = false) {
     task.completed = !task.completed;
-    if (task.completed) clearFocusForTask(task.id);
+    if (task.completed) {
+      task.completedAt = new Date().toISOString();
+      clearFocusForTask(task.id);
+    } else delete task.completedAt;
     const saved = persist();
     render();
     if (daily) {
@@ -331,7 +338,9 @@
       const next = row && !row.closest('details:not([open])') ? row.querySelector('input,button') : null;
       (next || $('todayFeatured').querySelector('[data-focus-task-id]') || $('todayCompleted').querySelector('summary')).focus();
     }
-    if (saved) notify(task.completed ? "Task completed." : "Task marked incomplete.");
+    if (saved) notify(task.completed
+      ? "Done — " + SimpleDoCompletion.completedToday(tasks).length + " completed today."
+      : "Task marked incomplete.");
   }
 
   function makeTaskCard(task, mode = "card") {
@@ -451,13 +460,30 @@
     $('todayProgress').setAttribute('aria-valuetext',`${state.done} of ${state.total} completed`);
     $('todayCapacity').replaceChildren();if(planning)$('todayCapacity').append(planning.indicator(key,all));
     $('todayFilterNote').hidden=!(query||tagUI?.filter);$('todayFilterNote').textContent=`Showing ${state.visible} of ${state.total} tasks. Progress includes all of today.`;
+    // This is a history of actual completions today, including tasks from the Inbox,
+    // regardless of scheduled date, search, and the chosen Inbox visibility period.
+    const wins=SimpleDoCompletion.completedToday(tasks);
+    $('todayWins').hidden=!wins.length;
+    $('todayWinsRecent').replaceChildren();
+    if(wins.length){
+      $('todayWinsCount').textContent=String(wins.length);
+      $('todayWinsLabel').textContent=wins.length===1?'task completed today':'tasks completed today';
+      $('todayWinsMessage').textContent=state.total && !state.remaining
+        ? "Everything you planned for today is complete."
+        : "A few things off your list. That's progress.";
+      for(const task of wins.slice(0,3)){
+        const item=document.createElement('li');
+        item.textContent=task.title;
+        $('todayWinsRecent').append(item);
+      }
+    }
     $('todayFeatured').replaceChildren();
     if(state.featured)$('todayFeatured').append(makeTaskCard(state.featured,'featured'));
     else {
       const empty=document.createElement('div');empty.className='today-empty';
       const title=document.createElement('h2'),text=document.createElement('p');
-      title.textContent=!state.total?'No tasks today':!state.remaining?'All tasks complete':'No matching tasks';
-      text.textContent=!state.total?'Add a task for today.':!state.remaining?'All scheduled tasks are complete.':'Clear the filter to see other tasks.';
+      title.textContent=!state.total?(wins.length?'Nothing scheduled today':'No tasks today'):!state.remaining?'All tasks complete':'No matching tasks';
+      text.textContent=!state.total?(wins.length?'Completed Inbox tasks are included in your wins above.':'Add a task for today.'):!state.remaining?'All scheduled tasks are complete.':'Clear the filter to see other tasks.';
       empty.append(title,text);$('todayFeatured').append(empty);
     }
     $('todayAlsoSection').hidden=!state.others.length;$('todayAlsoCount').textContent=String(state.others.length);
@@ -497,17 +523,22 @@
     // Preserve the independent Inbox scroll position when tasks update.
     const previousScrollTop = els.inboxTasks.scrollTop;
     refreshInboxTagOptions();
-    const source = tasks.filter(task => !task.date);
+    const allInbox = tasks.filter(task => !task.date);
+    const now = Date.now();
+    const source = allInbox.filter(task => SimpleDoCompletion.visibleInInbox(task,inboxCompletedVisibility,now));
+    lastInboxVisibleCount = source.length;
     const inbox = sortTasks(matching(source).filter(task => {
       const ids = SimpleDoTags.taskIds(task);
       const tagMatch = !inboxTag || (inboxTag === "__untagged__" ? ids.length === 0 : ids.includes(inboxTag));
       const text = (String(task.title || "") + " " + String(task.notes || "")).toLocaleLowerCase();
       return tagMatch && (!inboxQuery || text.includes(inboxQuery));
     }));
-    const outstandingCount = source.filter(task => !task.completed).length;
+    const outstandingCount = allInbox.filter(task => !task.completed).length;
     els.inboxCount.textContent = String(outstandingCount);
     els.sidebarInboxCount.textContent = String(outstandingCount);
-    $("inboxFilterSummary").textContent = "Showing " + inbox.length + " of " + source.length + " tasks";
+    const hiddenCompleted = allInbox.length - source.length;
+    $("inboxFilterSummary").textContent = "Showing " + inbox.length + " of " + source.length + " tasks" +
+      (hiddenCompleted ? " · " + hiddenCompleted + " older completed hidden" : "");
     $("clearInboxFilters").hidden = !inboxQuery && !inboxTag;
     els.inboxTasks.replaceChildren();
     if (inbox.length) {
@@ -1141,9 +1172,10 @@
     clearFocusForTask(id);
     focusTargetTaskId = null;
     task.completed = true;
+    task.completedAt = new Date().toISOString();
     persist();
     render();
-    notify("Task complete. On to the next thing.");
+    notify("Done — " + SimpleDoCompletion.completedToday(tasks).length + " completed today.");
   }
 
   function updateFocusPanel() {
@@ -1195,6 +1227,16 @@
       rollover();
       render();
     }
+    // 48-hour / multi-day visibility limits can expire while the page stays open.
+    const minute = Math.floor(Date.now()/60000);
+    if (minute !== lastInboxVisibilityMinute) {
+      lastInboxVisibilityMinute = minute;
+      if (!document.hidden && ['planner','inbox'].includes(activeView)) {
+        const count = tasks.filter(task => !task.date &&
+          SimpleDoCompletion.visibleInInbox(task,inboxCompletedVisibility)).length;
+        if (count !== lastInboxVisibleCount) renderInbox();
+      }
+    }
     if (!focusSession) return;
     if (focusSession.state === "running" && focusSecondsLeft() === 0) {
       finishFocusSession();
@@ -1205,6 +1247,20 @@
   }
 
   function wireEvents() {
+    $('inboxCompletedVisibility').value=inboxCompletedVisibility;
+    $('inboxCompletedVisibility').addEventListener('change',event=>{
+      try {
+        inboxCompletedVisibility=completionPreferences.set(event.target.value);
+        $('inboxVisibilityStatus').textContent=completionPreferences.owner
+          ? 'Preference saved. It will sync across your devices.'
+          : 'Saved locally. Sign in to use on other devices.';
+        if(['planner','inbox'].includes(activeView)) renderInbox();
+        cloud?.schedule();
+      } catch (_) {
+        event.target.value=inboxCompletedVisibility;
+        $('inboxVisibilityStatus').textContent='Could not save this preference. Please try again.';
+      }
+    });
     $('todayAdd').onclick=()=>openTask(null,todayKey());
     $('taskEarlier').onclick=()=>shiftTask(-1);$('taskLater').onclick=()=>shiftTask(1);
     $("newTaskButton").addEventListener("click", () => openTask());
@@ -1488,6 +1544,12 @@
   if (storageReady) cloud = new SimpleDoCloud.Controller(store, {
     canSync: () => !saveFailed,
     tags: tagCatalog,
+    preferences: completionPreferences,
+    preferencesChanged() {
+      inboxCompletedVisibility=completionPreferences.value;
+      $('inboxCompletedVisibility').value=inboxCompletedVisibility;
+      if(['planner','inbox'].includes(activeView))renderInbox();
+    },
     tagsChanged() { tagUI.refresh(); render(); },
     accountChanged: (client, user) => { planning?.account(client, user); capture?.account(client, user); },
     changed(next) {
