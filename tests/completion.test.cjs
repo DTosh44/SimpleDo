@@ -12,6 +12,9 @@ test('all five completion visibility periods are available and indefinite is bac
   const old=task(true,new Date(now-hours(300)).toISOString());
   assert.equal(completion.visibleInInbox(old,completion.DEFAULT,now),true);
   assert.equal(completion.visibleInInbox(old,'indefinitely',now),true);
+  assert.equal(completion.visibleInInbox(task(false),completion.DEFAULT,now),true,'unfinished tasks stay visible');
+  assert.equal(completion.visibleInInbox(task(true),completion.DEFAULT,now),false,
+    'default indefinite applies to dated completions, not undated pre-tracking history');
 });
 
 test('timed options use actual hours and hide only completed Inbox cards',()=>{
@@ -22,7 +25,13 @@ test('timed options use actual hours and hide only completed Inbox cards',()=>{
     assert.equal(completion.visibleInInbox(task(true,at(limit)),policy,now),false,policy+' at cutoff');
     assert.equal(completion.visibleInInbox(task(false,at(limit+1000)),policy,now),true,policy+' unfinished stays visible');
   }
-  assert.equal(completion.visibleInInbox(task(true), '48-hours',now),true,'legacy completed tasks without timestamps cannot be aged');
+  for(const choice of completion.CHOICES){
+    const oldCompleted=task(true);
+    const previous=JSON.stringify(oldCompleted);
+    assert.equal(completion.visibleInInbox(oldCompleted,choice.value,now),false,
+      'historical completed task without a timestamp is archived under '+choice.label);
+    assert.equal(JSON.stringify(oldCompleted),previous,'hiding must not alter the underlying task');
+  }
   assert.equal(completion.visibleInInbox(task(true,new Date(now+hours(1)).toISOString()),'48-hours',now),true,'future clocks must not hide tasks');
 });
 
