@@ -518,6 +518,89 @@
     select.value = inboxTag;
   }
 
+
+  function renderCompletedHistory() {
+    if (!$("completedHistoryDialog").open) return;
+    const now = Date.now();
+    const scope = $("completedHistoryScope").value;
+    const search = $("completedHistorySearch").value.trim().toLocaleLowerCase();
+    const completed = tasks.filter(task => task.completed);
+    const archived = completed.filter(task => !task.date &&
+      !SimpleDoCompletion.visibleInInbox(task, inboxCompletedVisibility, now));
+    const legacy = task => !task.completedAt || !Number.isFinite(Date.parse(task.completedAt));
+    const records = (scope === "archived" ? archived :
+      scope === "legacy" ? completed.filter(legacy) : completed)
+      .filter(task => (String(task.title || "") + " " + String(task.notes || "")).toLocaleLowerCase().includes(search))
+      .sort((a, b) => {
+        const first = legacy(a) ? null : Date.parse(a.completedAt);
+        const second = legacy(b) ? null : Date.parse(b.completedAt);
+        if (first !== null && second === null) return -1;
+        if (first === null && second !== null) return 1;
+        if (first !== null && second !== null && first !== second) return second - first;
+        return a.title.localeCompare(b.title);
+      });
+    $("completedHistoryCount").textContent =
+      "Showing " + records.length + " of " +
+      (scope === "archived" ? archived.length : scope === "legacy" ? completed.filter(legacy).length : completed.length) +
+      " completed tasks";
+    const list = $("completedHistoryList");
+    list.replaceChildren();
+    if (!records.length) {
+      const empty = document.createElement("p");
+      empty.className = "completed-history-empty";
+      empty.textContent = search ? "No completed tasks match your search." :
+        scope === "archived" ? "No completed tasks are currently hidden from the Inbox." : "No completed tasks to show.";
+      list.append(empty);
+      return;
+    }
+    for (const task of records) {
+      const row = document.createElement("article");
+      row.className = "completed-history-item";
+      const main = document.createElement("div");
+      main.className = "completed-history-item-content";
+      const name = document.createElement("strong");
+      name.textContent = task.title;
+      main.append(name);
+      const when = document.createElement("p");
+      when.className = "completed-history-date";
+      when.textContent = legacy(task) ? "Completed previously · Date not recorded" :
+        "Completed " + new Intl.DateTimeFormat("en-GB", {
+          dateStyle:"medium", timeStyle:"short"
+        }).format(new Date(task.completedAt));
+      main.append(when);
+      if (task.date) {
+        const schedule = document.createElement("p");
+        schedule.className = "completed-history-date";
+        schedule.textContent = "Originally scheduled: " + task.date;
+        main.append(schedule);
+      }
+      const tags = tagUI?.badge(task);
+      if (tags) main.append(tags);
+      if (task.notes) {
+        const notes = document.createElement("details");
+        notes.className = "completed-history-notes";
+        const summary = document.createElement("summary");
+        summary.textContent = "View notes";
+        const content = document.createElement("p");
+        content.textContent = task.notes;
+        notes.append(summary, content);
+        main.append(notes);
+      }
+      const reopen = document.createElement("button");
+      reopen.type = "button";
+      reopen.className = "button button-outline completed-history-reopen";
+      reopen.textContent = "Reopen";
+      reopen.setAttribute("aria-label", "Reopen " + task.title);
+      reopen.addEventListener("click", () => {
+        const current = tasks.find(item => item.id === task.id);
+        if (!current || !current.completed) return;
+        toggleTask(current);
+      });
+      row.append(main, reopen);
+      list.append(row);
+    }
+  }
+
   function renderInbox() {
     // Local Inbox filters do not affect dated tasks, calendar capacity, or global task counts.
     // Preserve the independent Inbox scroll position when tasks update.
@@ -537,6 +620,7 @@
     els.inboxCount.textContent = String(outstandingCount);
     els.sidebarInboxCount.textContent = String(outstandingCount);
     const hiddenCompleted = allInbox.length - source.length;
+    $("inboxArchivedCount").textContent = hiddenCompleted + " archived";
     $("inboxFilterSummary").textContent = "Showing " + inbox.length + " of " + source.length + " tasks" +
       (hiddenCompleted ? " · " + hiddenCompleted + " older completed hidden" : "");
     $("clearInboxFilters").hidden = !inboxQuery && !inboxTag;
@@ -634,6 +718,7 @@
       else button.removeAttribute("aria-current");
     });
     document.body.dataset.activeView = activeView;
+    if ($("completedHistoryDialog").open) renderCompletedHistory();
     updateFocusIndicator();
     if (els.taskDialog.open) updateSchedulingGuidance();
   }
@@ -1247,6 +1332,19 @@
   }
 
   function wireEvents() {
+    $("openCompletedHistory").addEventListener("click", () => {
+      $("completedHistoryScope").value = "archived";
+      $("completedHistorySearch").value = "";
+      $("completedHistoryDialog").showModal();
+      renderCompletedHistory();
+      $("completedHistorySearch").focus();
+    });
+    $("closeCompletedHistory").addEventListener("click", () => {
+      $("completedHistoryDialog").close();
+      $("openCompletedHistory").focus();
+    });
+    $("completedHistorySearch").addEventListener("input", renderCompletedHistory);
+    $("completedHistoryScope").addEventListener("change", renderCompletedHistory);
     $('inboxCompletedVisibility').value=inboxCompletedVisibility;
     $('inboxCompletedVisibility').addEventListener('change',event=>{
       try {

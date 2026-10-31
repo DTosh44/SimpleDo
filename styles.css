@@ -837,3 +837,41 @@ body[data-active-view="inbox"] .inbox-filter {margin-top:17px}
  .today-wins-recent {display:block}
  .today-wins-recent li+li {margin-top:6px}
 }
+
+/* Completed history remains browsable without restoring aged tasks to the active Inbox. */
+.inbox-history-row {flex:0 0 auto;display:flex;justify-content:flex-end;margin:-2px 0 12px}
+.inbox-history-open {border:0;background:transparent;color:#565656;font-size:11px;font-weight:650;line-height:1.4;padding:5px 0;cursor:pointer;text-decoration:underline;text-decoration-color:#cecece;text-underline-offset:3px}
+.inbox-history-open span {color:#898989;font-weight:500;margin-left:5px;text-decoration:none}
+.inbox-history-open:hover {color:#8e2952}
+.inbox-history-open:focus-visible {outline:2px solid #8e2952;outline-offset:3px;border-radius:3px}
+.completed-history-dialog {width:min(680px,calc(100% - 28px));max-width:680px;max-height:88dvh;padding:0}
+.completed-history-inner {display:flex;flex-direction:column;min-height:0;max-height:88dvh;padding:24px 28px 20px}
+.completed-history-inner .dialog-header {flex:0 0 auto;align-items:center;margin-bottom:8px}
+.completed-history-inner .dialog-header h2 {font-size:22px;letter-spacing:-.6px;margin:0}
+#completedHistoryDescription {font-size:12px;color:#777;line-height:1.55;margin:5px 0 18px}
+.completed-history-filters {display:flex;gap:12px;align-items:flex-end;flex:0 0 auto}
+.completed-history-filters > div {min-width:0;flex:1}
+.completed-history-filters > div:last-child {flex:0 0 180px}
+.completed-history-filters .field-label {font-size:11px;margin-bottom:5px}
+.completed-history-filters .field-input {width:100%;height:40px;min-width:0;font-size:12px}
+.completed-history-count {color:#888;font-size:11px;margin:12px 0 9px;flex:0 0 auto}
+.completed-history-list {overflow-y:auto;overscroll-behavior:contain;min-height:0;max-height:53dvh;padding-right:3px}
+.completed-history-item {display:flex;align-items:flex-start;justify-content:space-between;gap:14px;border-top:1px solid #ededed;padding:15px 2px}
+.completed-history-item-content {flex:1;min-width:0}
+.completed-history-item-content > strong {display:block;font-size:13px;font-weight:650;line-height:1.45;overflow-wrap:anywhere}
+.completed-history-date {font-size:11px;color:#858585;margin:5px 0;line-height:1.35}
+.completed-history-item .task-tags {margin-top:5px}
+.completed-history-reopen {flex:0 0 auto;font-size:11px;min-height:36px;padding:8px 11px}
+.completed-history-notes {margin-top:8px;font-size:11px;color:#666}
+.completed-history-notes summary {cursor:pointer;display:list-item}
+.completed-history-notes p {white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5;margin:7px 0}
+.completed-history-empty {font-size:12px;color:#777;padding:15px 0}
+@media(max-width:650px){
+ .completed-history-dialog {max-height:92dvh}
+ .completed-history-inner {max-height:92dvh;padding:20px 16px 14px}
+ .completed-history-filters {display:block}
+ .completed-history-filters > div + div {margin-top:10px}
+ .completed-history-list {max-height:51dvh}
+ .completed-history-item {gap:8px}
+ .completed-history-reopen {min-height:40px}
+}
